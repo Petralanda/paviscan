@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(paviscan:*)",
+      "Bash(./scripts/verify.sh:*)",
+      "Bash(pip install:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(ls:*)",
+      "Bash(gdalinfo:*)",
+      "Bash(rio:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Edit(config/precos.csv)"
+    ],
+    "deny": [
+      "Edit(tests/golden/**)",
+      "Edit(src/paviscan/sintetico.py)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm -rf:*)",
+      "Read(.env)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruff format -q src tests 2>/dev/null; ruff check -q --fix src tests 2>/dev/null; true"
+          }
+        ]
+      }
+    ]
+  }
+}

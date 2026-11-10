@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paviscan"
+version = "0.1.0"
+description = "Buracos em pavimento a partir de ortofotos: area, orcamento e antes/depois"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "rasterio",
+    "shapely>=2",
+    "geopandas",
+    "pyproj",
+    "scikit-image",
+    "opencv-python-headless",
+    "scipy",
+    "pandas",
+    "pyyaml",
+    "openpyxl",
+    "folium",
+    "typer",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+paviscan = "paviscan.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
