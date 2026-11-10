@@ -1,6 +1,6 @@
 # PaviScan
 
-Pipeline em Python: ortofoto de pista asfaltada -> buracos como polígonos em UTM -> área -> opções de reparo e orçamento -> comparação entre duas datas -> mapa HTML e XLSX. Plano completo em `PLAN.md`. Estado atual em `PROGRESS.md` (leia no início de toda sessão, atualize no fim).
+Pipeline em Python: ortofoto de pista asfaltada -> buracos como polígonos em UTM -> área -> opções de reparo e orçamento -> série temporal entre datas -> dashboard Streamlit com filtros e XLSX. Plano completo em `PLAN.md`. Estado atual em `PROGRESS.md` (leia no início de toda sessão, atualize no fim).
 
 ## Comandos
 
@@ -11,6 +11,8 @@ pytest tests/golden -q         # só os testes de aceite
 python -m paviscan.sintetico dados/sint --seed 7    # gera cena de teste com gabarito
 paviscan run --orto X.tif --pista pista.geojson --saida runs/nome
 paviscan comparar runs/antes runs/depois --saida runs/comp
+paviscan serie dados/trecho/ --saida runs/trecho      # uma subpasta AAAA-MM-DD por levantamento
+paviscan painel --runs runs/trecho                   # abre o dashboard
 ```
 
 ## Estrutura
@@ -23,8 +25,8 @@ src/paviscan/
   deteccao/       M2  base.py (Protocol), classico.py (watershed), yolo.py (futuro)
   geometria.py    M2  máscara -> polígonos UTM, área, retângulo de corte
   orcamento.py    M3  soluções, preços, opções A/B/C
-  comparacao.py   M4  casar buracos de duas datas
-  relatorio.py    M4  mapa folium + XLSX
+  comparacao.py   M3  casar buracos de duas datas e montar a serie (id persistente)
+  painel/         M4  dados.py (funcoes puras) e app.py (Streamlit)
   pipeline.py     M1+ orquestra tudo
   cli.py          M1+ typer
 config/           params.yaml, solucoes.csv, precos.csv
@@ -45,6 +47,19 @@ def comparar(antes: Path, depois: Path, saida: Path, tolerancia_m: float = 0.5) 
 # antes e depois são pastas de saída de processar().
 # grava saida/comparacao.geojson com coluna status em {"novo","cresceu","estavel","reparado"}
 #        saida/comparacao.json   {novos, cresceram, estaveis, reparados, delta_area_m2}
+
+def processar_serie(cenas: list[Path], saida: Path, config: Path | None = None) -> Path
+# cada cena e uma pasta com orto.tif, pista.geojson e meta.json contendo "data" (AAAA-MM-DD).
+# grava saida/<data>/ (igual a processar, mais previa.png da ortofoto reduzida) e
+#       saida/serie.geojson: uma linha por buraco por data, colunas
+#       data, id, id_persistente, status, area_m2, area_corte_m2, confianca, segmento, custo_A, custo_B
+# status em {"inicial","novo","cresceu","estavel","reparado"}; tudo "inicial" na primeira data.
+# id_persistente acompanha o mesmo buraco entre datas. Linha "reparado" repete a geometria da data anterior.
+
+# paviscan/painel/dados.py  (sem importar streamlit)
+def carregar(runs: Path) -> gpd.GeoDataFrame        # le serie.geojson; coluna data como datetime
+def filtrar(df, data_ini=None, data_fim=None, status=None, area_min=None, area_max=None,
+            segmentos=None, confianca_min=None) -> gpd.GeoDataFrame   # None = nao filtra; datas inclusivas
 
 # paviscan/deteccao/base.py
 class Detector(Protocol):
@@ -80,4 +95,4 @@ O detector é escolhido por `config/params.yaml: detector: classico`. Nada fora 
 4. Terminou de codar: `./scripts/verify.sh`. Depois chame o `verificador` (ele não viu o código ser escrito). Só é "pronto" com o veredito APROVADO.
 5. Atualize `PROGRESS.md`, faça commit.
 
-Especialistas em `.claude/agents/`: `geo-raster`, `cv-detector`, `orcamentista`, `viz-relatorio`, `verificador`.
+Especialistas em `.claude/agents/`: `geo-raster`, `cv-detector`, `orcamentista`, `serie-temporal`, `dashboard`, `verificador`.

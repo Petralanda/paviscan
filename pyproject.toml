@@ -19,7 +19,9 @@ dependencies = [
     "pandas",
     "pyyaml",
     "openpyxl",
-    "folium",
+    "streamlit>=1.37",
+    "plotly",
+    "pydeck",
     "typer",
 ]
 

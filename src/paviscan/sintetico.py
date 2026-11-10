@@ -208,9 +208,54 @@ def gerar_par(
     return a, d
 
 
+def gerar_serie(
+    pasta: Path,
+    n_datas: int = 4,
+    n_buracos: int = 6,
+    fator_crescimento: float = 1.25,
+    gsd: float = 0.02,
+    seed: int = 7,
+) -> list[Path]:
+    """Gera `n_datas` levantamentos mensais do mesmo trecho em `pasta/AAAA-MM-DD/`.
+
+    A cada data os buracos existentes crescem e surge 1 novo. Na terceira data o
+    buraco mais antigo e reparado. `pasta/esperado.json` guarda a contagem por data.
+    """
+    rng = np.random.default_rng(seed)
+    comprimento_m, largura_pista_m = 60.0, 7.0
+    altura_m = largura_pista_m + 4.0
+    pista = box(
+        ORIGEM[0], ORIGEM[1] - 2.0 - largura_pista_m, ORIGEM[0] + comprimento_m, ORIGEM[1] - 2.0
+    )
+    todos = _sortear_buracos(n_buracos + n_datas, pista, rng)
+    ativos, reserva = todos[:n_buracos], todos[n_buracos:]
+    k = fator_crescimento**0.5
+    pasta = Path(pasta)
+    saidas, esperado = [], {}
+    for t in range(n_datas):
+        if t > 0:
+            ativos = [affinity.scale(b, k, k) for b in ativos]
+            if t == 2:
+                ativos = ativos[1:]
+            ativos = ativos + [reserva[t]]
+        data = f"2026-{7 + t:02d}-01"
+        rgb, tf = _renderizar(
+            ativos, pista, comprimento_m, altura_m, gsd, np.random.default_rng(seed + 10 + t)
+        )
+        d = _gravar(pasta / data, rgb, tf, pista, ativos, gsd)
+        meta = json.loads((d / "meta.json").read_text())
+        meta["data"] = data
+        (d / "meta.json").write_text(json.dumps(meta))
+        esperado[data] = len(ativos)
+        saidas.append(d)
+    (pasta / "esperado.json").write_text(json.dumps(esperado))
+    return saidas
+
+
 if __name__ == "__main__":
     destino = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("dados/sint")
     semente = int(sys.argv[sys.argv.index("--seed") + 1]) if "--seed" in sys.argv else 7
     gerar_cena(destino / "cena", seed=semente)
     gerar_par(destino / "par", seed=semente)
+    gerar_serie(destino / "serie", seed=semente)
     print(f"Cenas gravadas em {destino}")

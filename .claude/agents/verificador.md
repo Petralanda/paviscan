@@ -16,7 +16,8 @@ Passos:
    - medida feita em pixel ou em graus;
    - `except` que engole erro, teste unitário que não afirma nada.
 4. Robustez: rode o pipeline em cenas sintéticas com seeds diferentes das do golden (por exemplo 3 e 42) e com `gsd=0.03`. Não precisa bater o limiar do golden, mas não pode quebrar nem cair para recall perto de zero. Relate os números.
-5. Confira os contratos de `CLAUDE.md`: nomes de arquivo, colunas, chaves do JSON.
+5. Se o marco for M4: confira que `painel/dados.py` não importa streamlit, que o painel não duplica regra de custo, e que cada filtro da barra lateral altera de fato os dados exibidos.
+6. Confira os contratos de `CLAUDE.md`: nomes de arquivo, colunas, chaves do JSON.
 
 Responda neste formato:
 

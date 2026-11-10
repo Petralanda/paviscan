@@ -17,8 +17,8 @@ Execute o marco **$ARGUMENTS** do PaviScan.
    |---|---|---|
    | M1 | geo-raster | Você escreve `pipeline.py` e `cli.py` em esqueleto |
    | M2 | cv-detector e geo-raster em paralelo | Detector e geometria só se encontram no contrato `Deteccao`. Você integra |
-   | M3 | orcamentista | |
-   | M4 | viz-relatorio | Comparação primeiro, mapa depois |
+   | M3 | orcamentista, depois serie-temporal | A série usa os custos do orçamento, então é em sequência |
+   | M4 | dashboard | `dados.py` e golden primeiro, visual depois. Suba o painel e confira os filtros antes de chamar o verificador |
    | M5 | nenhum fixo | Rodar em imagem real, README, ajustar config. Peça a imagem ao usuário se não houver em `dados/` |
 
    Ao delegar, o pedido precisa conter: objetivo, arquivos, o trecho do contrato que se aplica, o teste alvo e o que devolver. O especialista não vê esta conversa.
