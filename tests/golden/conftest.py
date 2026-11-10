@@ -12,11 +12,6 @@ def cena(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def par(tmp_path_factory):
-    return sintetico.gerar_par(tmp_path_factory.mktemp("par"), seed=11)
-
-
-@pytest.fixture(scope="session")
 def saida_cena(cena, tmp_path_factory):
     from paviscan.pipeline import processar
 

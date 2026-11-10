@@ -1,96 +1,64 @@
-"""M4: serie temporal e dashboard."""
+"""M4: dados e filtros do dashboard."""
 
-import json
 import os
 from pathlib import Path
 
-import pytest
-
 import paviscan
-from paviscan import sintetico
-
-COLUNAS = (
-    "data",
-    "id",
-    "id_persistente",
-    "status",
-    "area_m2",
-    "area_corte_m2",
-    "confianca",
-    "segmento",
-    "custo_A",
-    "custo_B",
-)
 
 
-@pytest.fixture(scope="module")
-def serie(tmp_path_factory):
-    from paviscan.pipeline import processar_serie
-
-    base = tmp_path_factory.mktemp("serie")
-    cenas = sintetico.gerar_serie(base / "cenas", n_datas=4, seed=5)
-    saida = processar_serie(cenas, base / "runs")
-    return base / "cenas", saida
-
-
-def test_serie_gravada(serie):
-    cenas, saida = serie
-    assert (saida / "serie.geojson").exists()
-    esperado = json.loads((cenas / "esperado.json").read_text())
-    for data in esperado:
-        assert (saida / data / "defeitos.geojson").exists(), data
-
-
-def test_carregar_e_colunas(serie):
+def test_carregar(saida_cena):
     from paviscan.painel.dados import carregar
 
-    df = carregar(serie[1])
-    for c in COLUNAS:
-        assert c in df.columns, c
-    assert df["data"].nunique() == 4
-    assert set(df["status"]) <= {"inicial", "novo", "cresceu", "estavel", "reparado"}
-    primeira = df[df["data"] == df["data"].min()]
-    assert (primeira["status"] == "inicial").all()
+    det, seg, resumo = carregar(saida_cena)
+    assert len(det) == resumo["n_defeitos"]
+    assert "pct_afetada" in seg.columns
 
 
-def test_id_persistente_acompanha_o_buraco(serie):
-    from paviscan.painel.dados import carregar
-
-    df = carregar(serie[1])
-    ativos = df[df["status"] != "reparado"]
-    datas_por_buraco = ativos.groupby("id_persistente")["data"].nunique()
-    assert datas_por_buraco.max() >= 3, "nenhum buraco foi acompanhado ao longo do tempo"
-    assert not ativos.duplicated(["data", "id_persistente"]).any()
-
-
-def test_filtros(serie):
+def test_filtros(saida_cena):
     from paviscan.painel.dados import carregar, filtrar
 
-    df = carregar(serie[1])
-    datas = sorted(df["data"].unique())
-    f = filtrar(df, data_ini=datas[1], data_fim=datas[2])
-    assert set(f["data"].unique()) == {datas[1], datas[2]}
-    f = filtrar(df, status=["novo"])
-    assert len(f) > 0 and (f["status"] == "novo").all()
-    f = filtrar(df, area_min=0.5)
-    assert (f["area_m2"] >= 0.5).all()
-    assert len(filtrar(df)) == len(df)
+    det, _, _ = carregar(saida_cena)
+    assert len(filtrar(det)) == len(det)
+
+    corte = float(det["area_m2"].median())
+    f = filtrar(det, area_min=corte)
+    assert 0 < len(f) < len(det) and (f["area_m2"] >= corte).all()
+    f = filtrar(det, area_max=corte)
+    assert (f["area_m2"] <= corte).all()
+
+    sev = det["severidade"].iloc[0]
+    f = filtrar(det, severidade=[sev])
+    assert len(f) > 0 and (f["severidade"] == sev).all()
+
+    s = int(det["segmento"].iloc[0])
+    f = filtrar(det, segmentos=[s])
+    assert len(f) > 0 and (f["segmento"] == s).all()
+
+    assert (filtrar(det, confianca_min=0.5)["confianca"] >= 0.5).all()
+    assert len(filtrar(det, area_min=1e9)) == 0
 
 
-def test_area_cresce_no_tempo(serie):
-    from paviscan.painel.dados import carregar
+def test_resumir(saida_cena):
+    from paviscan.painel.dados import carregar, filtrar, resumir
 
-    df = carregar(serie[1])
-    df = df[df["status"] != "reparado"]
-    por_data = df.groupby("data")["area_m2"].sum().sort_index()
-    assert por_data.iloc[-1] > por_data.iloc[0]
+    det, seg, _ = carregar(saida_cena)
+    r = resumir(det, seg)
+    assert r["n_buracos"] == len(det)
+    assert abs(r["area_total_m2"] - det["area_m2"].sum()) < 0.01
+    assert abs(r["pct_afetada"] - 100 * det["area_m2"].sum() / seg["area_pista_m2"].sum()) < 0.05
+    assert abs(r["buracos_por_100m"] - len(det) / 60 * 100) < 0.5
+    assert abs(r["maior_buraco_m2"] - det["area_m2"].max()) < 0.01
+
+    vazio = resumir(filtrar(det, area_min=1e9), seg)
+    assert vazio["n_buracos"] == 0 and vazio["area_total_m2"] == 0
 
 
-def test_app_abre_sem_erro(serie):
+def test_app_abre_sem_erro(saida_cena):
     from streamlit.testing.v1 import AppTest
 
-    os.environ["PAVISCAN_RUNS"] = str(serie[1])
+    os.environ["PAVISCAN_RUNS"] = str(saida_cena.parent)
     app = Path(paviscan.__file__).parent / "painel" / "app.py"
     at = AppTest.from_file(str(app), default_timeout=120).run()
     assert not at.exception, at.exception
     assert len(at.sidebar) > 0, "dashboard sem filtros na barra lateral"
+    assert len(at.metric) >= 3, "dashboard sem indicadores"

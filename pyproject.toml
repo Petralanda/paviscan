@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "paviscan"
 version = "0.1.0"
-description = "Buracos em pavimento a partir de ortofotos: area, orcamento e antes/depois"
+description = "Buracos em pavimento a partir de ortofotos: deteccao, medidas e dashboard"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",

@@ -19,8 +19,7 @@
       "Bash(rio:*)"
     ],
     "ask": [
-      "Bash(git push:*)",
-      "Edit(config/precos.csv)"
+      "Bash(git push:*)"
     ],
     "deny": [
       "Edit(tests/golden/**)",

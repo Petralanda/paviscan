@@ -1,6 +1,4 @@
-"""M2: buracos no lugar certo e com a area certa."""
-
-import json
+"""M2: buracos no lugar certo e com a medida certa."""
 
 import geopandas as gpd
 import numpy as np
@@ -8,18 +6,15 @@ import numpy as np
 from .conftest import casar
 
 
-def test_saidas_existem(saida_cena):
-    for nome in ("defeitos.geojson", "resumo.json"):
-        assert (saida_cena / nome).exists(), nome
-
-
 def test_src_projetado_e_colunas(saida_cena):
     det = gpd.read_file(saida_cena / "defeitos.geojson")
     assert det.crs is not None and det.crs.is_projected
-    for col in ("id", "area_m2", "area_corte_m2", "confianca"):
+    for col in ("id", "area_m2", "largura_m", "comprimento_m", "confianca"):
         assert col in det.columns, col
+    assert det["id"].is_unique
     assert np.allclose(det["area_m2"], det.geometry.area, rtol=0.02)
-    assert (det["area_corte_m2"] >= det["area_m2"]).all()
+    assert (det["largura_m"] <= det["comprimento_m"] + 1e-9).all()
+    assert det["confianca"].between(0, 1).all()
 
 
 def test_recall_e_falsos_positivos(cena, saida_cena):
@@ -40,9 +35,13 @@ def test_erro_de_area(cena, saida_cena):
     assert erros and float(np.median(erros)) <= 0.25, f"erro mediano {np.median(erros):.2f}"
 
 
-def test_resumo(cena, saida_cena):
-    r = json.loads((saida_cena / "resumo.json").read_text())
-    assert abs(r["gsd_m"] - 0.02) < 1e-6
-    det = gpd.read_file(saida_cena / "defeitos.geojson")
-    assert r["n_defeitos"] == len(det)
-    assert abs(r["area_total_m2"] - det["area_m2"].sum()) < 0.01
+def test_pista_sem_buraco_nao_gera_deteccao(tmp_path):
+    """Limiar tem que ser robusto: asfalto limpo (com faixa, trinca e sombra) da zero ou quase."""
+    from paviscan.pipeline import processar
+
+    from paviscan import sintetico
+
+    limpa = sintetico.gerar_cena(tmp_path / "limpa", n_buracos=0, seed=3)
+    out = processar(limpa / "orto.tif", limpa / "pista.geojson", tmp_path / "run")
+    det = gpd.read_file(out / "defeitos.geojson")
+    assert len(det) <= 1, f"{len(det)} deteccoes em pista sem buraco"

@@ -5,23 +5,17 @@ tiles:
   sobreposicao_px: 128
 
 classico:
-  janela_fundo_m: 1.5       # mediana para estimar o asfalto "limpo"
+  janela_fundo_m: 2.0       # maior que o maior buraco esperado
+  k_mad: 6.0                # limiar = mediana + k x MAD da anomalia
+  contraste_min: 18         # piso do limiar, em niveis de cinza
   area_min_m2: 0.05
   area_max_m2: 10.0
   solidez_min: 0.6
   alongamento_max: 4.0
 
-geometria:
-  margem_corte_m: 0.30      # folga do retangulo de corte em volta do buraco
-  profundidade_assumida_m: 0.05
+severidade:                 # por area do buraco, em m2. Faixas de trabalho, nao sao de norma
+  media_a_partir_de: 0.25
+  alta_a_partir_de: 1.0
 
-orcamento:
-  pavimento: CBUQ           # CBUQ | PMF | TSD
-  terreno: regular          # bom | regular | ruim
-  bdi: 0.25
-  segmento_m: 20
-  limite_recapeamento: 0.15 # fracao de area afetada que dispara a opcao C
-
-comparacao:
-  tolerancia_m: 0.5
-  crescimento_min: 0.20     # variacao relativa de area para contar como "cresceu"
+segmentos:
+  comprimento_m: 20

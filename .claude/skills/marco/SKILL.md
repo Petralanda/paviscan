@@ -17,9 +17,9 @@ Execute o marco **$ARGUMENTS** do PaviScan.
    |---|---|---|
    | M1 | geo-raster | Você escreve `pipeline.py` e `cli.py` em esqueleto |
    | M2 | cv-detector e geo-raster em paralelo | Detector e geometria só se encontram no contrato `Deteccao`. Você integra |
-   | M3 | orcamentista, depois serie-temporal | A série usa os custos do orçamento, então é em sequência |
+   | M3 | geo-raster | Indicadores e exportações. Depois rode em uma imagem real de `dados/` (peça ao usuário se não houver) e anote em `PROGRESS.md` o que o detector errou |
    | M4 | dashboard | `dados.py` e golden primeiro, visual depois. Suba o painel e confira os filtros antes de chamar o verificador |
-   | M5 | nenhum fixo | Rodar em imagem real, README, ajustar config. Peça a imagem ao usuário se não houver em `dados/` |
+   | M5 | cv-detector se precisar | Ajustar config para a imagem real da demo, README, roteiro da apresentação |
 
    Ao delegar, o pedido precisa conter: objetivo, arquivos, o trecho do contrato que se aplica, o teste alvo e o que devolver. O especialista não vê esta conversa.
 
@@ -29,4 +29,4 @@ Execute o marco **$ARGUMENTS** do PaviScan.
 
 6. **Fechamento.** Só com APROVADO: atualize `PROGRESS.md` (status, decisões, pendências), faça commit e `git tag` do marco em minúsculas. Termine com um resumo de 5 linhas: o que entrou, números do teste, pendências.
 
-Nunca: editar `tests/golden/` ou `sintetico.py`, dar push, inventar preço, marcar como feito sem o veredito.
+Nunca: editar `tests/golden/` ou `sintetico.py`, dar push, implementar orçamento ou série temporal, marcar como feito sem o veredito.

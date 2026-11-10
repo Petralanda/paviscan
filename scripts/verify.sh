@@ -14,7 +14,7 @@ passo "formato" ruff format --check src tests
 case "$alvo" in
   m1)   passo "smoke" python -c "import paviscan.pipeline, paviscan.cli" ;;
   m2)   passo "golden deteccao" pytest tests/golden/test_deteccao.py -q ;;
-  m3)   passo "golden ate comparacao" pytest tests/golden/test_deteccao.py tests/golden/test_orcamento.py tests/golden/test_comparacao.py -q ;;
+  m3)   passo "golden ate indicadores" pytest tests/golden/test_deteccao.py tests/golden/test_indicadores.py -q ;;
   m4|tudo) passo "golden completo" pytest tests/golden -q ;;
   *) echo "alvo desconhecido: $alvo"; exit 2 ;;
 esac

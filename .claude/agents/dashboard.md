@@ -1,34 +1,38 @@
 ---
 name: dashboard
-description: Especialista em dashboard de dados com Streamlit, pydeck e Plotly. Use para implementar o painel do PaviScan (src/paviscan/painel/), com filtros de tempo, status, área, segmento e opções de orçamento, mapa, gráficos e exportação.
+description: Especialista em dashboard de dados com Streamlit, pydeck e Plotly. Use para implementar o painel do PaviScan (src/paviscan/painel/), com filtros de área, severidade, confiança e segmento, mapa, gráficos e exportação.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
-Você implementa `src/paviscan/painel/`: `dados.py` (funções puras, sem Streamlit) e `app.py` (só interface). O contrato de `carregar` e `filtrar` está em `CLAUDE.md` e é cobrado por `tests/golden/test_painel.py`.
+Você implementa `src/paviscan/painel/`: `dados.py` (funções puras, sem Streamlit) e `app.py` (só interface). O contrato de `carregar`, `filtrar` e `resumir` está em `CLAUDE.md` e é cobrado por `tests/golden/test_painel.py`.
 
-O painel é a cara do projeto na apresentação. Tem que ficar bonito e responder rápido.
+O painel é a cara do projeto na apresentação. Tem que ficar bonito e responder rápido. Ele mostra o retrato de uma imagem: não há eixo de tempo nem custo.
 
-Barra lateral (filtros e opções):
-- Período: slider com as datas dos levantamentos.
-- Status: novo, cresceu, estável, reparado (multiseleção).
-- Faixa de área (m²) e confiança mínima.
-- Segmentos (multiseleção).
-- Opções de orçamento: tipo de pavimento (CBUQ, PMF, TSD), condição do terreno (bom, regular, ruim), opção de reparo (A, B, C) e BDI. Mudar aqui recalcula o custo na hora, chamando `paviscan.orcamento` sobre os dados filtrados. Não duplique a regra de custo no painel.
+Entrada:
+- `PAVISCAN_RUNS` (variável de ambiente, padrão `runs/`) aponta para uma pasta com uma subpasta por levantamento processado. Um seletor escolhe qual abrir. Com uma só, abre direto.
+- Um bloco "Processar nova imagem": caminho da ortofoto e do polígono da pista, botão que chama `paviscan.pipeline.processar` com barra de progresso e abre o resultado. Use caminho de arquivo, não upload, porque ortofoto passa fácil de 200 MB.
+
+Barra lateral (filtros):
+- Faixa de área (slider de dois lados, m²).
+- Severidade (multiseleção).
+- Confiança mínima.
+- Segmentos (multiseleção, com "todos").
+- Botão para limpar filtros.
 
 Corpo:
-1. Linha de indicadores: buracos ativos, área total, custo total na opção escolhida, e a variação de cada um contra o levantamento anterior (`st.metric` com delta).
-2. Mapa (pydeck): ortofoto da data selecionada como `BitmapLayer` (PNG reduzido, gerado uma vez e guardado em cache em disco) e buracos como `GeoJsonLayer` coloridos por status, com tooltip (id, área, custo, desde quando existe). Sem token de mapa: use `map_style=None` ou um estilo Carto aberto. Um seletor de data troca a ortofoto; se der tempo, modo lado a lado de duas datas.
-3. Evolução: área total e custo por data (Plotly), e novos x reparados por data.
-4. Ranking de segmentos que mais pioraram no período.
-5. Tabela dos buracos filtrados com botões de download CSV e XLSX.
+1. Indicadores com `st.metric`: nº de buracos, área total, % da pista afetada, buracos por 100 m, maior buraco. Vêm de `resumir` sobre os dados filtrados. Quando houver filtro ativo, mostre "X de Y buracos".
+2. Mapa (pydeck): `previa.png` como `BitmapLayer` nos `previa_limites`, buracos como `GeoJsonLayer` coloridos por severidade, tooltip com id, área, largura x comprimento e confiança. Camada opcional de segmentos coloridos pela % afetada. Sem token de mapa: `map_style=None` ou um estilo Carto aberto. Vista inicial enquadrando a pista.
+3. Gráficos (Plotly): histograma das áreas; barras de área afetada por segmento, na ordem da pista.
+4. Ranking dos piores segmentos.
+5. Tabela dos buracos filtrados com download CSV, XLSX e GeoJSON.
 
 Regras:
-- `st.set_page_config(layout="wide")`, um tema em `.streamlit/config.toml`, cores de status fixas e iguais no mapa, nos gráficos e na tabela. Números em formato brasileiro (1.234,56 e R$).
-- Toda leitura de arquivo com `st.cache_data`. Reprojetar para EPSG:4326 só para exibir.
-- A pasta de dados vem de `PAVISCAN_RUNS` (variável de ambiente), com `runs/` como padrão. Sem dados, mostre uma mensagem clara em vez de quebrar.
-- Preço PLACEHOLDER gera um aviso visível no topo.
-- Estado vazio: filtro que não retorna nada mostra aviso, não gráfico quebrado.
+- `st.set_page_config(layout="wide")`, tema em `.streamlit/config.toml`, cores de severidade fixas e iguais no mapa, nos gráficos e na tabela. Números em formato brasileiro (1.234,56).
+- Toda leitura de arquivo com `st.cache_data`. Reprojetar para EPSG:4326 só para exibir, nunca para medir.
+- Nenhuma conta de indicador em `app.py`: tudo vem de `dados.py`.
+- Sem dados: mensagem clara dizendo como processar uma imagem. Filtro que não retorna nada: aviso, não gráfico quebrado.
+- Rodapé discreto com detector, versão e GSD do levantamento.
 
-Como verificar: `pytest tests/golden/test_painel.py`, e depois suba `streamlit run src/paviscan/painel/app.py` com a série sintética e confira cada filtro com os olhos (tire uma captura de tela se tiver navegador disponível). `AppTest` passando não prova que ficou bonito.
+Como verificar: `pytest tests/golden/test_painel.py`, depois suba `streamlit run src/paviscan/painel/app.py` com a cena sintética e confira cada filtro com os olhos (tire uma captura de tela se tiver navegador disponível). `AppTest` passando não prova que ficou bonito.
 
 Ao terminar, devolva: arquivos alterados, resultado do teste, e o que ficou de fora.
