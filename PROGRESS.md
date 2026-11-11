@@ -9,7 +9,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 | M1 Ingestão e pista | concluído (tag m1) | verify m1 OK, verificador APROVADO |
 | M2 Detecção e geometria | concluído (tag m2) | verify m2 OK, verificador APROVADO na 3ª volta |
 | M3 Indicadores, exportações e imagem real | concluído (tag m3) | verify m3 OK, verificador APROVADO; 1ª imagem real processada |
-| M4 Dashboard | a fazer | |
+| M4 Dashboard | concluído (tag m4) | verify m4 OK, verificador APROVADO; conferido no Chrome |
 | M5 Fechamento | a fazer | |
 
 ## Feito
@@ -42,6 +42,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 10/11: saída visual é um dashboard Streamlit com filtros de área, severidade, confiança e segmento.
 
 ## Pendências e dúvidas para o usuário
+- (M5) Painel: sanitizar o nome do levantamento e avisar antes de sobrescrever; deixar claro que a % e os buracos/100 m são da pista inteira quando há filtro de segmento.
 - Arquivos do repo foram regravados por fora duas vezes (geometria.py truncado às 09:52, cli.py voltou a uma versão antiga às 10:32), provavelmente buffer antigo do VS Code com salvamento automático ou o OneDrive. Ambos restaurados. Convém fechar abas antigas do editor e pausar a sincronização do OneDrive nesta pasta.
 - Upload de imagem pelo painel (futuro): `acervo.guardar` pronto; falta o `st.file_uploader` e decidir o limite de tamanho.
 - (menor) resto de segmento muito curto (ex.: 0,5 m) deixa pct_afetada instável; avaliar juntar ao anterior.
