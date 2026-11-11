@@ -23,14 +23,14 @@ O que vale dizer sobre o detector:
 
 - Compara cada pixel com o asfalto em volta (fundo local de 2 m), e não com um limiar único para a imagem toda. Isso cancela sombra larga e variação de luz.
 - O limiar é robusto (mediana + k × MAD). Explicar por que não Otsu: ele sempre divide a imagem em duas classes e inventaria buraco em pista boa.
-- Filtros de forma em metros cortam faixa pintada, trinca e sombra. Um último filtro descarta mancha escura colada a objeto claro grande, que é para-brisa ou sombra de carro.
+- Filtros de forma em metros cortam faixa pintada, trinca e sombra. Um último filtro descarta mancha escura colada a lataria, ou seja, objeto claro grande e compacto: para-brisa ou sombra de carro. Faixa de pedestre e linha de retenção não contam, então buraco na zona de frenagem continua aparecendo.
 - Tudo atrás de uma interface `Detector`: o YOLO de segmentação entra no mesmo lugar sem mudar o resto.
 
 ## 3. Prova no sintético (2 min)
 
 Levantamento `sintetico`, uma cena gerada com gabarito conhecido.
 
-- 8 de 8 buracos, nenhum falso positivo, erro de área de 3 a 4%. Também nas seeds 11, 23 e 42 e com GSD de 1 a 5 cm.
+- 8 de 8 buracos, nenhum falso positivo, erro de área de 2 a 5%. Também nas seeds 11, 23 e 42 e com GSD de 1 a 5 cm.
 - A cena tem de propósito faixa pintada, trinca e sombra larga, e nenhuma vira buraco. Em pista sem buraco, zero detecções.
 - Mostrar: o mapa com as cores de severidade, o tooltip (área, largura x comprimento, confiança) e o gráfico por segmento.
 
@@ -43,7 +43,7 @@ Levantamento da avenida em Manaus: 3 cm/px, 120 m, 6 segmentos.
   - o caminhão escuro gera várias detecções;
   - a borda desgastada e a sarjeta geram manchas pequenas;
   - a sombra do poste também.
-  - O filtro de veículo claro já tirou os para-brisas, que tinham confiança 1,0.
+  - O filtro de lataria já tirou os para-brisas, que tinham confiança 1,0 (39 → 33).
 - Usar os filtros ao vivo:
   - subir a confiança mínima;
   - filtrar severidade;
@@ -53,7 +53,7 @@ Levantamento da avenida em Manaus: 3 cm/px, 120 m, 6 segmentos.
 ## 5. Saídas (1 min)
 
 - Baixar o XLSX e o GeoJSON pelo painel. O GeoJSON abre direto no QGIS, em UTM.
-- "Processar nova imagem": escolher a ortofoto do acervo e processar ao vivo. Leva uns 5 s para 120 m de pista.
+- "Processar nova imagem": escolher a ortofoto do acervo e processar ao vivo. Leva menos de 10 s para 120 m de pista.
 
 ## 6. Limites e próximos passos (1 min)
 
@@ -68,4 +68,4 @@ Levantamento da avenida em Manaus: 3 cm/px, 120 m, 6 segmentos.
 - **Por que não só watershed?** Watershed separa regiões que se tocam, mas não decide o que é buraco. Ele só entra para separar dois buracos colados.
 - **E a severidade?** São faixas de área configuráveis (0,25 e 1 m²). É um filtro de trabalho, não classificação de norma.
 - **Funciona com outra resolução?** Sim, todos os limiares estão em metros. Testado de 1 a 5 cm/px.
-- **Imagem grande?** Lê por janelas e só a área da pista, nunca o raster inteiro. A ortofoto real tem 170 Mpx; os 120 m de avenida processam em uns 4 s com pico de ~225 MB de memória.
+- **Imagem grande?** Lê por janelas e só a área da pista, nunca o raster inteiro. A ortofoto real tem 170 Mpx; os 120 m de avenida processam em menos de 10 s com pico de ~225 MB de memória.

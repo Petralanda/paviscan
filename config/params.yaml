@@ -18,9 +18,11 @@ classico:
   separacao_min_m: 0.4      # distancia minima entre centros para o watershed separar
   conf_contraste_ref: 50    # anomalia media (niveis de cinza) que vale confianca cheia
   conf_borda_ref: 600       # gradiente medio na borda (niveis de cinza por metro) idem
-  anel_claro_m: 0.6         # anel em volta da deteccao onde se procura objeto claro (veiculo)
+  anel_claro_m: 0.6         # anel em volta da deteccao onde se procura lataria de veiculo
   claro_delta: 70           # "claro" = mais que o asfalto tipico + isto (niveis de cinza)
-  claro_frac_max: 0.2       # acima desta fracao de anel claro, descarta (para-brisa, sombra de carro)
+  veiculo_area_min_m2: 1.5  # objeto claro so conta como veiculo se for grande...
+  veiculo_alongamento_max: 3.5  # ...e compacto (faixa de pedestre e linha de retencao nao)
+  claro_frac_max: 0.2       # acima desta fracao de anel em lataria, descarta (para-brisa, sombra)
 
 severidade:                 # por area do buraco, em m2. Faixas de trabalho, nao sao de norma
   media_a_partir_de: 0.25

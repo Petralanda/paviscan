@@ -88,3 +88,16 @@ def test_buraco_ao_lado_da_faixa_pintada_continua(det):
     img[152:202, 180:230] -= 50  # buraco encostado na faixa
     out = det.detectar(_rgb(img), 0.02, np.ones(img.shape, bool))
     assert len(out) == 1
+
+
+def test_buraco_em_faixa_de_pedestre_e_linha_de_retencao_continua(det):
+    """Sinalizacao larga e clara, mas comprida: nao e lataria, o buraco tem que ficar."""
+    img = _asfalto(h=400, w=500, seed=7)
+    for c in range(20, 480, 50):  # listras de 0,4 m com vao de 0,6 m (a 2 cm: 20 e 30 px)
+        img[40:190, c : c + 20] = 215
+    img[90:140, 45:70] -= 50  # buraco de 0,5 x 0,5 m no vao entre listras
+    img[230:250, :] = 215  # linha de retencao de 0,40 m atravessando a pista
+    img[250:300, 200:250] -= 50  # buraco encostado nela
+    out = det.detectar(_rgb(img), 0.02, np.ones(img.shape, bool))
+    centros = sorted((float(np.nonzero(d.mascara)[0].mean()), d) for d in out)
+    assert len(out) == 2, [round(c) for c, _ in centros]

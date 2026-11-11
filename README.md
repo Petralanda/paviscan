@@ -70,19 +70,20 @@ Ele compara cada pixel com o asfalto em volta, e não com um limiar global:
 2. Anomalia = fundo − imagem.
 3. Limiar robusto = mediana + 6 × MAD, com um piso. Não é Otsu, que inventa buraco em pista limpa.
 4. Filtros de forma em metros: área, solidez e alongamento.
-5. Descarte de regiões escuras coladas a um objeto claro grande (para-brisa e sombra de carro).
+5. Descarte de regiões escuras coladas a um objeto claro, grande e compacto, com cara de lataria (para-brisa e sombra de carro). Sinalização comprida, como faixa de pedestre e linha de retenção, não conta.
 6. Confiança pelo contraste e pela nitidez da borda.
 
 Todos os limiares estão em `config/params.yaml`, em metros.
 
 Resultados:
 
-- Cena sintética (seeds 7, 11, 23 e 42; GSD de 1 a 5 cm): recall de 100%, nenhum falso positivo, erro de área mediano de 3% a 4%. Em pista sem buraco, nenhuma detecção.
-- Imagem real (Manaus, 3 cm, 120 m de avenida): 32 detecções. Quase todas são falsos positivos: caminhão escuro, borda desgastada ou sarjeta e sombra de poste. O trecho tem poucas panelas, então mede falso positivo e não recall.
+- Cena sintética (seeds 7, 11, 23 e 42; GSD de 1 a 5 cm): recall de 100%, nenhum falso positivo, erro de área mediano de 2% a 5%. Em pista sem buraco, nenhuma detecção.
+- Imagem real (Manaus, 3 cm, 120 m de avenida): 33 detecções, contra 39 sem o filtro de veículo. Quase todas são falsos positivos: caminhão, borda desgastada ou sarjeta e sombra de poste. O trecho tem poucas panelas, então mede falso positivo e não recall.
 
 Limites conhecidos, que valem para qualquer método sem aprendizado:
 
 - mancha de óleo, remendo escuro, bueiro, poça e veículo escuro aparecem como buraco;
+- buraco colado a um objeto claro grande e compacto (placa de concreto de vários m², veículo estacionado) é descartado junto com os para-brisas;
 - profundidade não é medida.
 
 O filtro de confiança do painel esconde os casos fracos. O próximo passo é o YOLO de segmentação, plugado na mesma interface `Detector`.

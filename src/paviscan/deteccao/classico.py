@@ -38,7 +38,7 @@ def limiar_robusto(valores: np.ndarray, k_mad: float, piso: float) -> float:
 
 class DetectorClassico:
     nome = "classico"
-    versao = "0.2.0"
+    versao = "0.2.1"
 
     def __init__(self, params: dict):
         self.p = dict(params)
@@ -81,16 +81,35 @@ class DetectorClassico:
         c2 = min(1.0, nitidez / self.p["conf_borda_ref"])
         return float(np.clip(0.5 * c1 + 0.5 * c2, 0.0, 1.0))
 
-    def _colado_a_objeto_claro(
-        self, m: np.ndarray, cinza: np.ndarray, valida: np.ndarray, asfalto: float, gsd: float
-    ) -> bool:
-        """True se o anel em volta da regiao e em boa parte muito mais claro que o asfalto.
+    def _lataria(
+        self, cinza: np.ndarray, valida: np.ndarray, asfalto: float, gsd: float
+    ) -> np.ndarray:
+        """Mascara dos objetos claros com cara de veiculo: grandes e compactos.
 
-        E o caso de para-brisa e sombra de veiculo: escuro colado a lataria clara. Buraco,
-        mancha e remendo ficam cercados de asfalto. Faixa pintada e fina e ocupa pouco do anel.
+        Sinalizacao (faixa, linha de retencao, faixa de pedestre) e clara mas comprida e
+        estreita, e tampa e pequena: nenhuma entra aqui.
+        """
+        p = self.p
+        claro = (cinza > asfalto + p["claro_delta"]) & valida
+        out = np.zeros(claro.shape, bool)
+        rot = label(claro, connectivity=2)
+        for reg in regionprops(rot):
+            if reg.area * gsd * gsd < p["veiculo_area_min_m2"]:
+                continue
+            menor = max(reg.axis_minor_length, 1e-6)
+            if reg.axis_major_length / menor > p["veiculo_alongamento_max"]:
+                continue
+            r0, c0, r1, c1 = reg.bbox
+            out[r0:r1, c0:c1] |= rot[r0:r1, c0:c1] == reg.label
+        return out
+
+    def _colado_a_veiculo(self, m: np.ndarray, lataria: np.ndarray, gsd: float) -> bool:
+        """True se boa parte do anel em volta da regiao e lataria (para-brisa, sombra de carro).
+
+        Buraco fica cercado de asfalto, mesmo encostado em faixa pintada larga.
         """
         raio = self.p["anel_claro_m"] / gsd
-        if raio < 1:
+        if raio < 1 or not lataria.any():
             return False
         r = int(np.ceil(raio)) + 1
         lin, col = np.nonzero(m)
@@ -98,11 +117,7 @@ class DetectorClassico:
         c0, c1 = max(0, col.min() - r), min(m.shape[1], col.max() + r + 1)
         sub = m[r0:r1, c0:c1].astype(np.uint8)
         anel = cv2.dilate(sub, _disco(raio)).astype(bool) & ~sub.astype(bool)
-        anel &= valida[r0:r1, c0:c1]
-        if not anel.any():
-            return False
-        claros = cinza[r0:r1, c0:c1][anel] > asfalto + self.p["claro_delta"]
-        return float(claros.mean()) > self.p["claro_frac_max"]
+        return float(lataria[r0:r1, c0:c1][anel].mean()) > self.p["claro_frac_max"]
 
     def detectar(self, img: np.ndarray, gsd_m: float, valida: np.ndarray) -> list[Deteccao]:
         p, gsd = self.p, float(gsd_m)
@@ -141,6 +156,7 @@ class DetectorClassico:
 
         saida: list[Deteccao] = []
         rotulos = label(binaria, connectivity=2)
+        lataria = self._lataria(preenchida, valida, asfalto, gsd) if rotulos.max() else None
         for reg in regionprops(rotulos):
             r0, c0, r1, c1 = reg.bbox
             sub = rotulos[r0:r1, c0:c1] == reg.label
@@ -157,7 +173,7 @@ class DetectorClassico:
                     continue
                 m = np.zeros(valida.shape, bool)
                 m[r0:r1, c0:c1] = ped
-                if self._colado_a_objeto_claro(m, preenchida, valida, asfalto, gsd):
+                if self._colado_a_veiculo(m, lataria, gsd):
                     continue
                 saida.append(Deteccao(mascara=m, confianca=self._confianca(m, anom, grad_m)))
         return saida

@@ -94,7 +94,7 @@ def comprimento_m(segmentos: gpd.GeoDataFrame) -> float:
 
 
 def resumir(defeitos: gpd.GeoDataFrame, segmentos: gpd.GeoDataFrame) -> dict:
-    """Indicadores do que esta filtrado. A % usa a area de pista de todos os segmentos."""
+    """Indicadores do que esta filtrado. % e buracos/100 m usam os segmentos recebidos."""
     n = int(len(defeitos))
     area = float(defeitos["area_m2"].sum()) if n else 0.0
     area_pista = float(segmentos["area_pista_m2"].sum())
