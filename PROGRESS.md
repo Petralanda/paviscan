@@ -17,6 +17,8 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 11/11 M1: `ingestao.py` (SRC, GSD, UTM SIRGAS no Brasil via WarpedVRT, janelas com sobreposição), `pista.py` (polígono, janela, máscara), `pipeline.processar` em esqueleto gravando `pista_recorte.tif`, CLI `paviscan run`/`painel`. 10 testes unitários. Robustez do verificador: área do recorte 420 m² em seeds 11/42, gsd 0,01 a 0,05, orto em 4326.
 - 11/11 M2: `deteccao/` (Protocol, `classico.py`, fábrica `criar`), `geometria.py` (vetorização, medidas, severidade, deduplicação), pipeline grava `defeitos.geojson`. Sintético: recall 100%, 0 FP, erro de área mediano 3 a 4% nas seeds 7/11/23/42, gsd 0,005 a 0,05; pista limpa 0 detecções. 168 cenas de buraco na fronteira de tile sem erro. 39 testes unitários.
 - 11/11 M3: `pista.segmentos` (faixas ao longo do eixo maior, cobrem a pista), `indicadores.py`, `exportar.py` (GeoJSON, GPKG com 2 camadas, XLSX com 3 abas, resumo.json, previa.png RGBA lida com out_shape), ingestão reprojeta 3857/pés, estica uint16/float e usa alfa no VRT. 51 testes unitários, 9 golden. Verificador: pista inclinada, comprimento não múltiplo de 20 m e entrada 3857 fecham; imagem real com 225 MB de pico.
+- 11/11 M4: `painel/dados.py` (funções puras: carregar, filtrar, resumir, por_segmento, ranking, exportações, cores, formato BR) e `painel/app.py` (filtros na barra lateral, 5 indicadores com "X de Y", mapa pydeck com prévia + buracos por severidade + segmentos opcionais, histograma, barras por segmento, ranking, tabela, downloads CSV/XLSX/GeoJSON). Conferido no Chrome real com Playwright: filtros mudam mapa/indicadores/tabela, downloads baixam, troca de levantamento, sem erro no console.
+- 11/11 Acervo (pedido do usuário): `acervo.py` lê as GeoTIFF de `../images` (config `acervo.pasta_imagens` ou `PAVISCAN_IMAGENS`), com o polígono da pista ao lado (`<nome>.pista.geojson`). Painel escolhe a imagem numa lista e processa; CLI `paviscan imagens` e `paviscan run --orto <nome>`. `acervo.guardar()` já grava uma imagem recebida (arquivo ou stream, em blocos, valida raster com SRC antes de publicar) para o upload futuro.
 
 ## Imagem real (M3)
 - Ortofoto: `../images/6a7f671c77ca9598cc9fe780.tif` (fora do repo). Manaus, EPSG:31980, GSD 2,99 cm, 10647 x 15942 px, JPEG/YCbCr, sem nodata: fora da área imageada é **branco** (255), não máscara.
@@ -31,6 +33,8 @@ Atualize ao fim de cada sessão. Curto e factual.
 - Para o M5: polígono mais justo (recuar da sarjeta); filtrar veículo (objeto claro/saturado grande colado à detecção); avaliar `area_min_m2` maior em imagem real.
 
 ## Decisões
+- 11/11: pydeck dentro do Streamlit avalia string como expressão: a data URI da prévia vai entre aspas simples; acessores por nome de coluna (`PolygonLayer` + coluna `contorno`), nunca `@@=`. Zoom do deck.gl usa mundo de 512 px.
+- 11/11: imagens entram pelo acervo (pasta), não por upload: ortofoto passa de 200 MB. Upload no painel fica para depois, chamando `acervo.guardar` (atenção a `server.maxUploadSize`, padrão 200 MB).
 - 11/11: tiles com `sobreposicao_m` (metros); cada buraco fica com o tile cujo miolo contém o centroide e, no fim, polígonos sobrepostos ficam só com o maior (`geometria.deduplicar`). Unir a máscara do trecho inteiro foi descartado por memória em ortofoto grande.
 - 11/11: ambiente em `.venv` com Python 3.12; `core.fileMode=false` no repo (Windows).
 - 10/11: escopo reduzido a um retrato de uma imagem. Orçamento e série temporal saíram.
@@ -38,7 +42,8 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 10/11: saída visual é um dashboard Streamlit com filtros de área, severidade, confiança e segmento.
 
 ## Pendências e dúvidas para o usuário
-- (M4) previa.png limita só a largura; limitar o maior lado (textura WebGL). defeitos.geojson vazio perde as colunas: `painel.dados.carregar` tem que repor.
+- Arquivos do repo foram regravados por fora duas vezes (geometria.py truncado às 09:52, cli.py voltou a uma versão antiga às 10:32), provavelmente buffer antigo do VS Code com salvamento automático ou o OneDrive. Ambos restaurados. Convém fechar abas antigas do editor e pausar a sincronização do OneDrive nesta pasta.
+- Upload de imagem pelo painel (futuro): `acervo.guardar` pronto; falta o `st.file_uploader` e decidir o limite de tamanho.
 - (menor) resto de segmento muito curto (ex.: 0,5 m) deixa pct_afetada instável; avaliar juntar ao anterior.
 - (menor) area_pista_m2 não desconta área sem imagem (branco) se o polígono sair da área imageada.
 - O repositório está no OneDrive: um arquivo foi regravado truncado durante um commit (2e19b7b fica quebrado no histórico; f7b1913 corrige). Sugestão: pausar a sincronização ou mover o repo para fora do OneDrive.
