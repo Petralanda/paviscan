@@ -12,6 +12,12 @@ classico:
   area_max_m2: 10.0
   solidez_min: 0.6
   alongamento_max: 4.0
+  sigma_m: 0.01             # desfoque leve antes de tudo
+  margem_borda_m: 0.05      # ignora a faixa junto a borda da pista
+  elemento_m: 0.03          # elemento da abertura/fechamento
+  separacao_min_m: 0.4      # distancia minima entre centros para o watershed separar
+  conf_contraste_ref: 50    # anomalia media (niveis de cinza) que vale confianca cheia
+  conf_borda_ref: 600       # gradiente medio na borda (niveis de cinza por metro) idem
 
 severidade:                 # por area do buraco, em m2. Faixas de trabalho, nao sao de norma
   media_a_partir_de: 0.25
