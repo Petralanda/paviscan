@@ -5,6 +5,7 @@ from __future__ import annotations
 import geopandas as gpd
 import numpy as np
 from rasterio.features import shapes
+from shapely import STRtree
 from shapely.geometry import Polygon, shape
 
 COLUNAS = ["id", "area_m2", "largura_m", "comprimento_m", "confianca", "severidade"]
@@ -13,11 +14,37 @@ COLUNAS = ["id", "area_m2", "largura_m", "comprimento_m", "confianca", "severida
 def vetorizar(mascara: np.ndarray, transform, gsd_m: float) -> Polygon | None:
     """Maior poligono da mascara, simplificado com tolerancia de meio pixel."""
     m = mascara.astype(np.uint8)
-    polis = [shape(g) for g, v in shapes(m, mask=m.astype(bool), transform=transform) if v == 1]
+    polis = [
+        shape(g)
+        for g, v in shapes(m, mask=m.astype(bool), connectivity=8, transform=transform)
+        if v == 1
+    ]
     if not polis:
         return None
     pol = max(polis, key=lambda g: g.area).simplify(gsd_m / 2, preserve_topology=True)
-    return pol if pol.is_valid and not pol.is_empty else pol.buffer(0)
+    if not pol.is_valid:
+        pol = pol.buffer(0)
+    if pol.geom_type == "MultiPolygon":
+        pol = max(pol.geoms, key=lambda g: g.area)
+    return None if pol.is_empty else pol
+
+
+def deduplicar(
+    poligonos: list[Polygon], confiancas: list[float]
+) -> tuple[list[Polygon], list[float]]:
+    """Entre poligonos que se sobrepoem (area de intersecao > 0), fica so o maior."""
+    if len(poligonos) < 2:
+        return list(poligonos), list(confiancas)
+    arvore = STRtree(poligonos)
+    ordem = sorted(range(len(poligonos)), key=lambda i: -poligonos[i].area)
+    aceitos: set[int] = set()
+    for i in ordem:
+        vizinhos = arvore.query(poligonos[i], predicate="intersects")
+        if any(j in aceitos and poligonos[i].intersection(poligonos[j]).area > 0 for j in vizinhos):
+            continue
+        aceitos.add(i)
+    manter = sorted(aceitos)
+    return [poligonos[i] for i in manter], [confiancas[i] for i in manter]
 
 
 def medidas(pol: Polygon) -> tuple[float, float]:
@@ -63,4 +90,4 @@ def montar_defeitos(
         )
     if not linhas:
         return gpd.GeoDataFrame({c: [] for c in COLUNAS}, geometry=[], crs=crs)
-    return gpd.GeoD
+    return gpd.GeoDataFrame(linhas, geometry="geometry", crs=crs)
