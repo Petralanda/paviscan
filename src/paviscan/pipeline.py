@@ -1,4 +1,4 @@
-"""Orquestra o processamento de uma ortofoto: ingestao, pista, deteccao e geometria."""
+"""Orquestra o processamento de uma ortofoto: ingestao, pista, deteccao, indicadores e saidas."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ import yaml
 from rasterio.windows import Window
 from rasterio.windows import transform as transform_janela
 
-from paviscan import deteccao, geometria, ingestao, pista
+import paviscan
+from paviscan import deteccao, exportar, geometria, indicadores, ingestao, pista
 
 CONFIG_PADRAO = Path(__file__).resolve().parents[2] / "config" / "params.yaml"
 
@@ -31,7 +32,7 @@ def _relativa(janela: Window, base: Window) -> Window:
     )
 
 
-def gravar_recorte(ds, geom, jan_pista: Window, destino: Path, params: dict) -> None:
+def gravar_recorte(ds, geom, jan_pista: Window, destino: Path, params: dict, esc=None) -> None:
     """Grava a ortofoto recortada a pista, janela a janela, com mascara fora da pista."""
     tf = transform_janela(jan_pista, ds.transform)
     perfil = dict(
@@ -50,7 +51,7 @@ def gravar_recorte(ds, geom, jan_pista: Window, destino: Path, params: dict) -> 
     t = params["tiles"]
     with rasterio.Env(GDAL_TIFF_INTERNAL_MASK=True), rasterio.open(destino, "w", **perfil) as dst:
         for _, inn in ingestao.janelas(ds.width, ds.height, t["tamanho_px"], 0, jan_pista):
-            rgb, valido = ingestao.ler_rgb(ds, inn)
+            rgb, valido = ingestao.ler_rgb(ds, inn, esc)
             m = valido & pista.mascara(geom, transform_janela(inn, ds.transform), valido.shape)
             rgb[~m] = 0
             rel = _relativa(inn, jan_pista)
@@ -66,7 +67,7 @@ def tiles_em_px(params: dict, gsd: float) -> tuple[int, int]:
     return max(int(t["tamanho_px"]), 4 * sob), sob
 
 
-def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso):
+def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso, esc=None):
     """Roda o detector tile a tile. Cada buraco fica com o tile cujo miolo contem o centroide.
 
     Com sobreposicao (`tiles.sobreposicao_m`) maior que o raio do maior buraco, o tile dono ve o
@@ -81,7 +82,7 @@ def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso
     for k, (ext, inn) in enumerate(tiles):
         avisar(0.2 + 0.6 * k / len(tiles), f"detectando ({k + 1}/{len(tiles)})")
         tf = transform_janela(ext, ds.transform)
-        rgb, valido = ingestao.ler_rgb(ds, ext)
+        rgb, valido = ingestao.ler_rgb(ds, ext, esc)
         valida = valido & pista.mascara(geom, tf, valido.shape)
         if not valida.any():
             continue
@@ -114,12 +115,29 @@ def processar(
     saida = Path(saida)
     saida.mkdir(parents=True, exist_ok=True)
     with ingestao.abrir(Path(orto)) as ds:
+        gsd = ingestao.gsd_m(ds)
+        esc = ingestao.escala(ds)
         geom = pista.carregar(Path(pista_path), ds.crs)
         jan = pista.janela(geom, ds.transform, ds.width, ds.height)
-        avisar(0.1, "recortando a pista")
-        gravar_recorte(ds, geom, jan, saida / "pista_recorte.tif", params)
-        defeitos, _ = detectar_trecho(ds, geom, jan, params, avisar)
-    avisar(0.9, "gravando resultados")
-    defeitos.to_file(saida / "defeitos.geojson", driver="GeoJSON")
+        avisar(0.05, "recortando a pista")
+        gravar_recorte(ds, geom, jan, saida / "pista_recorte.tif", params, esc)
+        defeitos, det = detectar_trecho(ds, geom, jan, params, avisar, esc)
+        avisar(0.85, "gerando a previa")
+        limites = exportar.gravar_previa(ds, geom, saida, params["previa"]["margem_m"], esc)
+        crs = ds.crs
+
+    avisar(0.9, "calculando indicadores")
+    segs = pista.segmentos(geom, params["segmentos"]["comprimento_m"], crs)
+    defeitos = indicadores.atribuir_segmento(defeitos, segs)
+    segs = indicadores.agregar(defeitos, segs)
+    resumo = indicadores.resumo(defeitos, segs, gsd, det.nome, det.versao, limites)
+    resumo["versao_paviscan"] = paviscan.__version__
+    resumo["orto"] = str(Path(orto).resolve())
+    resumo["pista"] = str(Path(pista_path).resolve())
+
+    avisar(0.95, "gravando resultados")
+    exportar.gravar_vetores(defeitos, segs, saida)
+    exportar.gravar_resumo(resumo, saida)
+    exportar.gravar_xlsx(resumo, defeitos, segs, saida)
     avisar(1.0, "pronto")
     return saida

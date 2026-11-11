@@ -25,3 +25,6 @@ severidade:                 # por area do buraco, em m2. Faixas de trabalho, nao
 
 segmentos:
   comprimento_m: 20
+
+previa:
+  margem_m: 5.0             # entorno da pista incluido na previa.png do dashboard
