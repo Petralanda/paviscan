@@ -90,17 +90,20 @@ class DetectorClassico:
         estreita, e tampa e pequena: nenhuma entra aqui.
         """
         p = self.p
-        claro = (cinza > asfalto + p["claro_delta"]) & valida
+        claro = ((cinza > asfalto + p["claro_delta"]) & valida).astype(np.uint8)
+        n, rot, stats, _ = cv2.connectedComponentsWithStats(claro, connectivity=8)
         out = np.zeros(claro.shape, bool)
-        rot = label(claro, connectivity=2)
-        for reg in regionprops(rot):
-            if reg.area * gsd * gsd < p["veiculo_area_min_m2"]:
+        area_min_px = p["veiculo_area_min_m2"] / (gsd * gsd)
+        for i in np.nonzero(stats[1:, cv2.CC_STAT_AREA] >= area_min_px)[0] + 1:
+            x, y, w, h = stats[i, :4]
+            sub = rot[y : y + h, x : x + w] == i
+            pr = regionprops(sub.astype(np.uint8))[0]
+            if (
+                pr.axis_major_length / max(pr.axis_minor_length, 1e-6)
+                > p["veiculo_alongamento_max"]
+            ):
                 continue
-            menor = max(reg.axis_minor_length, 1e-6)
-            if reg.axis_major_length / menor > p["veiculo_alongamento_max"]:
-                continue
-            r0, c0, r1, c1 = reg.bbox
-            out[r0:r1, c0:c1] |= rot[r0:r1, c0:c1] == reg.label
+            out[y : y + h, x : x + w] |= sub
         return out
 
     def _colado_a_veiculo(self, m: np.ndarray, lataria: np.ndarray, gsd: float) -> bool:
