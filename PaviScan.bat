@@ -1,6 +1,8 @@
 @echo off
 title PaviScan
 cd /d "%~dp0"
+set "PAVISCAN_RUNS=%~dp0runs\levantamentos"
+if not exist "%PAVISCAN_RUNS%" mkdir "%PAVISCAN_RUNS%"
 if not exist ".venv\Scripts\python.exe" (
   echo O ambiente ainda nao foi instalado. De dois cliques em Instalar.bat primeiro.
   pause
