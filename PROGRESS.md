@@ -10,7 +10,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 | M2 Detecção e geometria | concluído (tag m2) | verify m2 OK, verificador APROVADO na 3ª volta |
 | M3 Indicadores, exportações e imagem real | concluído (tag m3) | verify m3 OK, verificador APROVADO; 1ª imagem real processada |
 | M4 Dashboard | concluído (tag m4) | verify m4 OK, verificador APROVADO; conferido no Chrome |
-| M5 Fechamento | a fazer | |
+| M5 Fechamento | concluído (tag m5) | verify tudo OK; verificador: volta 1 APROVADO com ressalva (filtro apagava buraco em sinalização), corrigida; volta 2 cancelada; fechado pelo usuário após conferência completa no navegador |
 
 ## Feito
 - Scaffold, harness, gerador sintético e testes golden.
@@ -20,6 +20,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 11/11 M4: `painel/dados.py` (funções puras: carregar, filtrar, resumir, por_segmento, ranking, exportações, cores, formato BR) e `painel/app.py` (filtros na barra lateral, 5 indicadores com "X de Y", mapa pydeck com prévia + buracos por severidade + segmentos opcionais, histograma, barras por segmento, ranking, tabela, downloads CSV/XLSX/GeoJSON). Conferido no Chrome real com Playwright: filtros mudam mapa/indicadores/tabela, downloads baixam, troca de levantamento, sem erro no console.
 - 11/11 Acervo (pedido do usuário): `acervo.py` lê as GeoTIFF de `../images` (config `acervo.pasta_imagens` ou `PAVISCAN_IMAGENS`), com o polígono da pista ao lado (`<nome>.pista.geojson`). Painel escolhe a imagem numa lista e processa; CLI `paviscan imagens` e `paviscan run --orto <nome>`. `acervo.guardar()` já grava uma imagem recebida (arquivo ou stream, em blocos, valida raster com SRC antes de publicar) para o upload futuro.
 - 11/11 M5: filtro de objeto claro no detector (v0.2.0: escuro colado a lataria clara = veículo) tira FPs da imagem real sem mudar o sintético. Na 2ª versão (v0.2.1, após o verificador mostrar que apagava buraco em faixa de pedestre/linha de retenção) só conta lataria = componente claro ≥ 1,5 m² e alongamento ≤ 3,5: 39 → 33, e os 12 casos adversariais de sinalização voltam a detectar; painel com nome seguro, confirmação de sobrescrita e indicadores relativos aos segmentos filtrados; `scripts/demo.sh`; README e `ROTEIRO.md`. Ensaio do zero (clone limpo + venv + pip + demo): 8 min 52 s, sendo 8 min de `pip install` e 48 s da demo; painel sobe em 2 s.
+- 11/11 Fechamento: conferência final no Chrome (Playwright) com o detector 0.2.1: mapa, 2 gráficos, 2 tabelas, filtro de confiança (33 → 6), limpar filtros, 3 downloads, camada de segmentos, troca de levantamento e processamento pelo acervo, sem exceção e sem erro no console. 74 testes unitários + 13 golden.
 
 ## Imagem real (M3)
 - Ortofoto: `../images/6a7f671c77ca9598cc9fe780.tif` (fora do repo). Manaus, EPSG:31980, GSD 2,99 cm, 10647 x 15942 px, JPEG/YCbCr, sem nodata: fora da área imageada é **branco** (255), não máscara.
