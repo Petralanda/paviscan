@@ -38,7 +38,7 @@ def limiar_robusto(valores: np.ndarray, k_mad: float, piso: float) -> float:
 
 class DetectorClassico:
     nome = "classico"
-    versao = "0.1.0"
+    versao = "0.2.0"
 
     def __init__(self, params: dict):
         self.p = dict(params)
@@ -81,6 +81,29 @@ class DetectorClassico:
         c2 = min(1.0, nitidez / self.p["conf_borda_ref"])
         return float(np.clip(0.5 * c1 + 0.5 * c2, 0.0, 1.0))
 
+    def _colado_a_objeto_claro(
+        self, m: np.ndarray, cinza: np.ndarray, valida: np.ndarray, asfalto: float, gsd: float
+    ) -> bool:
+        """True se o anel em volta da regiao e em boa parte muito mais claro que o asfalto.
+
+        E o caso de para-brisa e sombra de veiculo: escuro colado a lataria clara. Buraco,
+        mancha e remendo ficam cercados de asfalto. Faixa pintada e fina e ocupa pouco do anel.
+        """
+        raio = self.p["anel_claro_m"] / gsd
+        if raio < 1:
+            return False
+        r = int(np.ceil(raio)) + 1
+        lin, col = np.nonzero(m)
+        r0, r1 = max(0, lin.min() - r), min(m.shape[0], lin.max() + r + 1)
+        c0, c1 = max(0, col.min() - r), min(m.shape[1], col.max() + r + 1)
+        sub = m[r0:r1, c0:c1].astype(np.uint8)
+        anel = cv2.dilate(sub, _disco(raio)).astype(bool) & ~sub.astype(bool)
+        anel &= valida[r0:r1, c0:c1]
+        if not anel.any():
+            return False
+        claros = cinza[r0:r1, c0:c1][anel] > asfalto + self.p["claro_delta"]
+        return float(claros.mean()) > self.p["claro_frac_max"]
+
     def detectar(self, img: np.ndarray, gsd_m: float, valida: np.ndarray) -> list[Deteccao]:
         p, gsd = self.p, float(gsd_m)
         valida = valida.astype(bool)
@@ -112,6 +135,7 @@ class DetectorClassico:
         binaria = cv2.morphologyEx(binaria, cv2.MORPH_CLOSE, el)
         binaria = ndi.binary_fill_holes(binaria) & nucleo
 
+        asfalto = float(np.median(preenchida[nucleo]))
         gy, gx = np.gradient(preenchida)
         grad_m = np.hypot(gx, gy) / gsd  # niveis de cinza por metro
 
@@ -133,5 +157,7 @@ class DetectorClassico:
                     continue
                 m = np.zeros(valida.shape, bool)
                 m[r0:r1, c0:c1] = ped
+                if self._colado_a_objeto_claro(m, preenchida, valida, asfalto, gsd):
+                    continue
                 saida.append(Deteccao(mascara=m, confianca=self._confianca(m, anom, grad_m)))
         return saida

@@ -69,3 +69,22 @@ def test_borda_suave_tem_menos_confianca(det):
     c_nitido = det.detectar(_rgb(nitido), 0.02, valida)[0].confianca
     c_suave = [d.confianca for d in det.detectar(_rgb(suave), 0.02, valida)]
     assert not c_suave or max(c_suave) < c_nitido
+
+
+def test_escuro_colado_a_veiculo_claro_e_descartado(det):
+    img = _asfalto(h=300, w=500, seed=5)
+    img[100:190, 150:380] = 225  # lataria clara de um carro, 1,8 x 4,6 m
+    img[115:175, 170:215] = 40  # para-brisa escuro dentro do carro
+    img[230:280, 40:90] -= 50  # buraco de verdade, longe do carro
+    out = det.detectar(_rgb(img), 0.02, np.ones(img.shape, bool))
+    assert len(out) == 1
+    lin, col = np.nonzero(out[0].mascara)
+    assert 230 <= lin.mean() <= 280 and 40 <= col.mean() <= 90
+
+
+def test_buraco_ao_lado_da_faixa_pintada_continua(det):
+    img = _asfalto(h=300, w=400, seed=6)
+    img[145:151, :] = 215  # faixa pintada de 12 cm
+    img[152:202, 180:230] -= 50  # buraco encostado na faixa
+    out = det.detectar(_rgb(img), 0.02, np.ones(img.shape, bool))
+    assert len(out) == 1
