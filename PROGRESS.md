@@ -21,6 +21,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 11/11 Acervo (pedido do usuário): `acervo.py` lê as GeoTIFF de `../images` (config `acervo.pasta_imagens` ou `PAVISCAN_IMAGENS`), com o polígono da pista ao lado (`<nome>.pista.geojson`). Painel escolhe a imagem numa lista e processa; CLI `paviscan imagens` e `paviscan run --orto <nome>`. `acervo.guardar()` já grava uma imagem recebida (arquivo ou stream, em blocos, valida raster com SRC antes de publicar) para o upload futuro.
 - 11/11 M5: filtro de objeto claro no detector (v0.2.0: escuro colado a lataria clara = veículo) tira FPs da imagem real sem mudar o sintético. Na 2ª versão (v0.2.1, após o verificador mostrar que apagava buraco em faixa de pedestre/linha de retenção) só conta lataria = componente claro ≥ 1,5 m² e alongamento ≤ 3,5: 39 → 33, e os 12 casos adversariais de sinalização voltam a detectar; painel com nome seguro, confirmação de sobrescrita e indicadores relativos aos segmentos filtrados; `scripts/demo.sh`; README e `ROTEIRO.md`. Ensaio do zero (clone limpo + venv + pip + demo): 8 min 52 s, sendo 8 min de `pip install` e 48 s da demo; painel sobe em 2 s.
 - 11/11 Fechamento: conferência final no Chrome (Playwright) com o detector 0.2.1: mapa, 2 gráficos, 2 tabelas, filtro de confiança (33 → 6), limpar filtros, 3 downloads, camada de segmentos, troca de levantamento e processamento pelo acervo, sem exceção e sem erro no console. 74 testes unitários + 13 golden.
+- 11/11 Pós-M5 (pedido do usuário): upload no painel (aba Enviar imagem → `acervo.guardar` na pasta images, polígono opcional; imagem sem pista recebe o polígono por upload), limite de upload 4 GB, `PaviScan.bat` (sobe em localhost:8501 e abre o navegador, resultados em runs/levantamentos) e `Instalar.bat`. Teste de ponta a ponta no Chrome: upload → arquivo na pasta → processar → resultado; arquivo falso recusado sem deixar resto.
 
 ## Imagem real (M3)
 - Ortofoto: `../images/6a7f671c77ca9598cc9fe780.tif` (fora do repo). Manaus, EPSG:31980, GSD 2,99 cm, 10647 x 15942 px, JPEG/YCbCr, sem nodata: fora da área imageada é **branco** (255), não máscara.
@@ -45,7 +46,6 @@ Atualize ao fim de cada sessão. Curto e factual.
 
 ## Pendências e dúvidas para o usuário
 - Arquivos do repo foram regravados por fora duas vezes (geometria.py truncado às 09:52, cli.py voltou a uma versão antiga às 10:32), provavelmente buffer antigo do VS Code com salvamento automático ou o OneDrive. Ambos restaurados. Convém fechar abas antigas do editor e pausar a sincronização do OneDrive nesta pasta.
-- Upload de imagem pelo painel (futuro): `acervo.guardar` pronto; falta o `st.file_uploader` e decidir o limite de tamanho.
 - (menor) resto de segmento muito curto (ex.: 0,5 m) deixa pct_afetada instável; avaliar juntar ao anterior.
 - (menor) area_pista_m2 não desconta área sem imagem (branco) se o polígono sair da área imageada.
 - O repositório está no OneDrive: um arquivo foi regravado truncado durante um commit (2e19b7b fica quebrado no histórico; f7b1913 corrige). Sugestão: pausar a sincronização ou mover o repo para fora do OneDrive.

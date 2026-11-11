@@ -2,7 +2,16 @@
 
 Buracos em pavimento a partir de ortofoto de drone. Uma imagem entra, os buracos saem como polígonos em UTM, com área, largura, comprimento, severidade e o segmento de 20 m em que caem, e tudo aparece num dashboard com filtros. É um retrato da data do voo: não há orçamento nem comparação entre datas.
 
-## Instalar
+## Usar sem terminal (Windows)
+
+1. Na primeira vez, dê dois cliques em `Instalar.bat` (5 a 10 minutos).
+2. Dê dois cliques em `PaviScan.bat`. O navegador abre em http://localhost:8501. Para encerrar, feche a janela preta.
+3. No painel, abra **Imagens: enviar e processar**:
+   - **Enviar imagem**: escolha a `.tif` (até 4 GB) e, se tiver, o polígono da pista (GeoJSON ou GPKG). Clique em **Guardar no acervo**. A imagem fica na pasta `images`.
+   - **Processar**: escolha a imagem e clique em **Processar**. Se ela ainda não tiver o polígono da pista, a própria aba pede o arquivo.
+4. Os resultados ficam em `runs/levantamentos` e aparecem no seletor da barra lateral.
+
+## Instalar (linha de comando)
 
 Python 3.10 ou mais novo (testado com 3.12).
 
