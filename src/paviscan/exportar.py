@@ -16,7 +16,7 @@ from rasterio.windows import bounds as limites_janela
 
 from paviscan import ingestao
 
-LARGURA_PREVIA_PX = 4000
+LADO_PREVIA_PX = 4000  # maior lado da previa: cabe na textura WebGL do mapa
 
 
 def gravar_vetores(defeitos: gpd.GeoDataFrame, segmentos: gpd.GeoDataFrame, saida: Path) -> None:
@@ -55,7 +55,7 @@ def gravar_xlsx(
 def gravar_previa(
     ds, geom, saida: Path, margem_m: float, escala: tuple[float, float] | None = None
 ) -> list[list[float]]:
-    """previa.png do entorno da pista, reduzida para no maximo LARGURA_PREVIA_PX de largura.
+    """previa.png do entorno da pista, com o maior lado reduzido a no maximo LADO_PREVIA_PX.
 
     Le a janela ja reduzida (`out_shape`), sem carregar o raster inteiro. Devolve os limites
     em EPSG:4326 no formato [[lat_s, lon_o], [lat_n, lon_l]].
@@ -63,7 +63,7 @@ def gravar_previa(
     x0, y0, x1, y1 = geom.buffer(margem_m).bounds
     jan = from_bounds(x0, y0, x1, y1, transform=ds.transform)
     jan = jan.intersection(Window(0, 0, ds.width, ds.height)).round_offsets().round_lengths()
-    fator = max(1.0, jan.width / LARGURA_PREVIA_PX)
+    fator = max(1.0, max(jan.width, jan.height) / LADO_PREVIA_PX)
     forma = (max(1, int(jan.height / fator)), max(1, int(jan.width / fator)))
     bandas = [1, 1, 1] if ds.count < 3 else [1, 2, 3]
     arr = ds.read(bandas, window=jan, out_shape=(3, *forma), resampling=Resampling.average)

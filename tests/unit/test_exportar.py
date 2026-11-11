@@ -32,7 +32,7 @@ def test_xlsx_com_tres_abas(run):
 
 def test_previa_reduzida_e_limites(run):
     img = cv2.imdecode(np.frombuffer((run / "previa.png").read_bytes(), np.uint8), -1)
-    assert img.shape[2] == 4 and img.shape[1] <= 4000
+    assert img.shape[2] == 4 and max(img.shape[:2]) <= 4000
     assert img.shape[1] < 3500  # 70 m de largura a 2 cm seriam 3500 px: tem que ter reduzido
     r = json.loads((run / "resumo.json").read_text(encoding="utf-8"))
     (lat_s, lon_o), (lat_n, lon_l) = r["previa_limites"]
