@@ -8,7 +8,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 |---|---|---|
 | M1 Ingestão e pista | concluído (tag m1) | verify m1 OK, verificador APROVADO |
 | M2 Detecção e geometria | concluído (tag m2) | verify m2 OK, verificador APROVADO na 3ª volta |
-| M3 Indicadores, exportações e imagem real | a fazer | |
+| M3 Indicadores, exportações e imagem real | concluído (tag m3) | verify m3 OK, verificador APROVADO; 1ª imagem real processada |
 | M4 Dashboard | a fazer | |
 | M5 Fechamento | a fazer | |
 
@@ -16,6 +16,7 @@ Atualize ao fim de cada sessão. Curto e factual.
 - Scaffold, harness, gerador sintético e testes golden.
 - 11/11 M1: `ingestao.py` (SRC, GSD, UTM SIRGAS no Brasil via WarpedVRT, janelas com sobreposição), `pista.py` (polígono, janela, máscara), `pipeline.processar` em esqueleto gravando `pista_recorte.tif`, CLI `paviscan run`/`painel`. 10 testes unitários. Robustez do verificador: área do recorte 420 m² em seeds 11/42, gsd 0,01 a 0,05, orto em 4326.
 - 11/11 M2: `deteccao/` (Protocol, `classico.py`, fábrica `criar`), `geometria.py` (vetorização, medidas, severidade, deduplicação), pipeline grava `defeitos.geojson`. Sintético: recall 100%, 0 FP, erro de área mediano 3 a 4% nas seeds 7/11/23/42, gsd 0,005 a 0,05; pista limpa 0 detecções. 168 cenas de buraco na fronteira de tile sem erro. 39 testes unitários.
+- 11/11 M3: `pista.segmentos` (faixas ao longo do eixo maior, cobrem a pista), `indicadores.py`, `exportar.py` (GeoJSON, GPKG com 2 camadas, XLSX com 3 abas, resumo.json, previa.png RGBA lida com out_shape), ingestão reprojeta 3857/pés, estica uint16/float e usa alfa no VRT. 51 testes unitários, 9 golden. Verificador: pista inclinada, comprimento não múltiplo de 20 m e entrada 3857 fecham; imagem real com 225 MB de pico.
 
 ## Imagem real (M3)
 - Ortofoto: `../images/6a7f671c77ca9598cc9fe780.tif` (fora do repo). Manaus, EPSG:31980, GSD 2,99 cm, 10647 x 15942 px, JPEG/YCbCr, sem nodata: fora da área imageada é **branco** (255), não máscara.
@@ -37,6 +38,9 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 10/11: saída visual é um dashboard Streamlit com filtros de área, severidade, confiança e segmento.
 
 ## Pendências e dúvidas para o usuário
+- (M4) previa.png limita só a largura; limitar o maior lado (textura WebGL). defeitos.geojson vazio perde as colunas: `painel.dados.carregar` tem que repor.
+- (menor) resto de segmento muito curto (ex.: 0,5 m) deixa pct_afetada instável; avaliar juntar ao anterior.
+- (menor) area_pista_m2 não desconta área sem imagem (branco) se o polígono sair da área imageada.
 - O repositório está no OneDrive: um arquivo foi regravado truncado durante um commit (2e19b7b fica quebrado no histórico; f7b1913 corrige). Sugestão: pausar a sincronização ou mover o repo para fora do OneDrive.
 - (menor) `deduplicar` usa interseção > 0; avaliar tolerância relativa se aparecer caso real.
 - Ortofoto real (GSD de 5 cm/px ou melhor) e polígono da pista.
