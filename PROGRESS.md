@@ -17,6 +17,18 @@ Atualize ao fim de cada sessão. Curto e factual.
 - 11/11 M1: `ingestao.py` (SRC, GSD, UTM SIRGAS no Brasil via WarpedVRT, janelas com sobreposição), `pista.py` (polígono, janela, máscara), `pipeline.processar` em esqueleto gravando `pista_recorte.tif`, CLI `paviscan run`/`painel`. 10 testes unitários. Robustez do verificador: área do recorte 420 m² em seeds 11/42, gsd 0,01 a 0,05, orto em 4326.
 - 11/11 M2: `deteccao/` (Protocol, `classico.py`, fábrica `criar`), `geometria.py` (vetorização, medidas, severidade, deduplicação), pipeline grava `defeitos.geojson`. Sintético: recall 100%, 0 FP, erro de área mediano 3 a 4% nas seeds 7/11/23/42, gsd 0,005 a 0,05; pista limpa 0 detecções. 168 cenas de buraco na fronteira de tile sem erro. 39 testes unitários.
 
+## Imagem real (M3)
+- Ortofoto: `../images/6a7f671c77ca9598cc9fe780.tif` (fora do repo). Manaus, EPSG:31980, GSD 2,99 cm, 10647 x 15942 px, JPEG/YCbCr, sem nodata: fora da área imageada é **branco** (255), não máscara.
+- Pista de teste: `dados/real/pista_avenida.geojson` (ignorado pelo git). Retângulo EPSG:31980 x 828641,469 a 828646,769, y 9667482,038 a 9667602,038 (avenida no leste da imagem, 5,3 x 120 m, 6 segmentos). Segmento 0 = sul.
+- Resultado com a config atual: 39 detecções, 8,96 m², 1,41% da pista, 4 s.
+- O que o detector errou (conferido em resolução cheia, `runs/real/deteccoes_avenida.png`):
+  - Veículos: o caminhão sozinho gera 12 detecções (seg. 2); para-brisas de carros e a moto geram outras ~7, várias com confiança ≥ 0,8. É a maior fonte de FP.
+  - Borda da pista: faixa escura de sarjeta/mato e borda desgastada geram fileiras de detecções pequenas (0,05 a 0,4 m²) nos seg. 4 e 5. Parte é dano real de borda, mas não é panela.
+  - Sombra de poste (seg. 4, ids 9 a 11) junto a uma mancha escura que pode ser panela real.
+  - Não detectado: a faixa longa de asfalto quebrado na borda oeste do seg. 2 (contraste baixo e muito alongada, cai no filtro de alongamento).
+  - Trecho com poucos buracos de verdade: serve para medir FP, não recall. Para a demo convém achar trecho com panelas visíveis.
+- Para o M5: polígono mais justo (recuar da sarjeta); filtrar veículo (objeto claro/saturado grande colado à detecção); avaliar `area_min_m2` maior em imagem real.
+
 ## Decisões
 - 11/11: tiles com `sobreposicao_m` (metros); cada buraco fica com o tile cujo miolo contém o centroide e, no fim, polígonos sobrepostos ficam só com o maior (`geometria.deduplicar`). Unir a máscara do trecho inteiro foi descartado por memória em ortofoto grande.
 - 11/11: ambiente em `.venv` com Python 3.12; `core.fileMode=false` no repo (Windows).
@@ -27,7 +39,5 @@ Atualize ao fim de cada sessão. Curto e factual.
 ## Pendências e dúvidas para o usuário
 - O repositório está no OneDrive: um arquivo foi regravado truncado durante um commit (2e19b7b fica quebrado no histórico; f7b1913 corrige). Sugestão: pausar a sincronização ou mover o repo para fora do OneDrive.
 - (menor) `deduplicar` usa interseção > 0; avaliar tolerância relativa se aparecer caso real.
-- (M3) Reprojetar também SRC projetado impróprio para medir (EPSG:3857, unidades em pés). Hoje só reprojeta SRC geográfico.
-- (M3) Esticamento de contraste para float 0-1 e uint16 de 12 bits; nodata no WarpedVRT.
 - Ortofoto real (GSD de 5 cm/px ou melhor) e polígono da pista.
 - Confirmar as faixas de severidade em `config/params.yaml`.
