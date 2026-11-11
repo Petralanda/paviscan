@@ -42,3 +42,14 @@ def test_montar_defeitos_colunas_e_vazio():
     assert gdf.loc[0, "severidade"] == "media"
     vazio = geometria.montar_defeitos([], [], "EPSG:31980", p)
     assert vazio.empty and vazio.crs.to_epsg() == 31980
+
+
+def test_deduplicar_fica_o_maior_e_mantem_vizinhos():
+    grande = box(0, 0, 2, 2)
+    lasca = box(1.9, 0.5, 2.0, 0.7)  # pedaco do mesmo buraco visto por outro tile
+    copia = box(0, 0, 2, 2)
+    vizinho = box(2, 0, 3, 1)  # so encosta: e outro buraco
+    longe = box(10, 10, 11, 11)
+    pols, confs = geometria.deduplicar([lasca, grande, copia, vizinho, longe], [1, 2, 3, 4, 5])
+    assert len(pols) == 3
+    assert grande.equals(pols[0]) and confs[1:] == [4, 5]

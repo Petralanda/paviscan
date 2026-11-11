@@ -63,34 +63,37 @@ def test_tiles_pequenos_nao_duplicam_nem_cortam_buraco(cena, tmp_path):
     assert sorted(a["area_m2"].round(2)) == sorted(b["area_m2"].round(2))
 
 
-def test_gsd_fino_buraco_na_fronteira_do_tile(tmp_path):
-    """A 0,5 cm, um buraco de 0,9 m de raio bem na fronteira do miolo sai inteiro e uma vez so."""
+@pytest.mark.parametrize("gsd", [0.005, 0.02])
+@pytest.mark.parametrize("eixo", ["coluna", "linha"])
+@pytest.mark.parametrize("raio,desloc", [(0.9, 0.0), (1.6, 0.0), (1.6, -0.8), (1.6, 0.8)])
+def test_buraco_na_fronteira_do_tile_sai_uma_vez(tmp_path, gsd, eixo, raio, desloc):
+    """Buraco cruzando a fronteira entre miolos: uma deteccao so, com a area inteira."""
     import geopandas as gpd
     from rasterio.transform import from_origin
     from shapely.geometry import box
 
     from paviscan.pipeline import carregar_config, tiles_em_px
 
-    gsd = 0.005
     tam, sob = tiles_em_px(carregar_config(), gsd)
-    assert sob * gsd >= 2.5 and tam - 2 * sob >= tam / 2
-    h, w = int(5 / gsd), int(12 / gsd)
-    x0, y0 = 830000.0, 9660000.0
-    img = 95 + 4 * np.random.default_rng(0).standard_normal((h, w))
-    cx, cy = tam - 2 * sob, h // 2  # fronteira entre o miolo do 1o e do 2o tile
-    yy, xx = np.mgrid[0:h, 0:w]
-    img[(xx - cx) ** 2 + (yy - cy) ** 2 <= (0.9 / gsd) ** 2] -= 50
+    passo = tam - 2 * sob
+    lado = passo + int(round(4.0 / gsd))  # um miolo inteiro e mais 4 m: cabe a fronteira
+    rng = np.random.default_rng(0)
+    img = 95 + 4 * rng.standard_normal((lado, lado))
+    fronteira = passo + desloc * raio / gsd
+    meio = passo / 2
+    cx, cy = (fronteira, meio) if eixo == "coluna" else (meio, fronteira)
+    yy, xx = np.mgrid[0:lado, 0:lado]
+    img[(xx - cx) ** 2 + (yy - cy) ** 2 <= (raio / gsd) ** 2] -= 50
     rgb = np.clip(np.stack([img] * 3), 0, 255).astype(np.uint8)
-    d = tmp_path / "c"
-    d.mkdir()
-    perfil = dict(driver="GTiff", width=w, height=h, count=3, dtype="uint8", crs="EPSG:31980")
-    with rasterio.open(d / "o.tif", "w", transform=from_origin(x0, y0, gsd, gsd), **perfil) as ds:
+    x0, y0, m = 830000.0, 9660000.0, lado * gsd
+    perfil = dict(driver="GTiff", width=lado, height=lado, count=3, dtype="uint8")
+    tf = from_origin(x0, y0, gsd, gsd)
+    with rasterio.open(tmp_path / "o.tif", "w", crs="EPSG:31980", transform=tf, **perfil) as ds:
         ds.write(rgb)
-    gpd.GeoDataFrame(geometry=[box(x0, y0 - 5, x0 + 12, y0)], crs="EPSG:31980").to_file(
-        d / "p.geojson"
+    gpd.GeoDataFrame(geometry=[box(x0, y0 - m, x0 + m, y0)], crs="EPSG:31980").to_file(
+        tmp_path / "p.geojson"
     )
-    det = gpd.read_file(
-        processar(d / "o.tif", d / "p.geojson", tmp_path / "r") / "defeitos.geojson"
-    )
-    assert len(det) == 1
-    assert abs(det["area_m2"].iloc[0] - np.pi * 0.81) < 0.1
+    out = processar(tmp_path / "o.tif", tmp_path / "p.geojson", tmp_path / "r")
+    det = gpd.read_file(out / "defeitos.geojson")
+    assert len(det) == 1, list(det["area_m2"].round(2))
+    assert abs(det["area_m2"].iloc[0] - np.pi * raio**2) / (np.pi * raio**2) < 0.05

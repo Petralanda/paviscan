@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections.abc import Callable
 from pathlib import Path
 
@@ -67,29 +66,18 @@ def tiles_em_px(params: dict, gsd: float) -> tuple[int, int]:
     return max(int(t["tamanho_px"]), 4 * sob), sob
 
 
-def _toca_borda_interna(m: np.ndarray, ext: Window, largura: int, altura: int) -> bool:
-    """True se a mascara encosta numa borda do tile que nao e borda do raster (buraco cortado)."""
-    r0, c0 = int(ext.row_off), int(ext.col_off)
-    r1, c1 = r0 + m.shape[0], c0 + m.shape[1]
-    return bool(
-        (r0 > 0 and m[0].any())
-        or (r1 < altura and m[-1].any())
-        or (c0 > 0 and m[:, 0].any())
-        or (c1 < largura and m[:, -1].any())
-    )
-
-
 def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso):
     """Roda o detector tile a tile. Cada buraco fica com o tile cujo miolo contem o centroide.
 
-    A sobreposicao (em metros, `tiles.sobreposicao_m`) tem que passar do raio do maior buraco:
-    assim o tile dono ve o buraco inteiro. Se mesmo assim ele encostar na borda, ha aviso.
+    Com sobreposicao (`tiles.sobreposicao_m`) maior que o raio do maior buraco, o tile dono ve o
+    buraco inteiro. O vizinho pode ve-lo cortado e devolver uma lasca ou uma copia cujo centroide
+    cai no proprio miolo: por isso, no fim, poligonos que se sobrepoem ficam so com o maior.
     """
     det = deteccao.criar(params["detector"], params)
     gsd = ingestao.gsd_m(ds)
     tam, sob = tiles_em_px(params, gsd)
     tiles = list(ingestao.janelas(ds.width, ds.height, tam, sob, jan_pista))
-    poligonos, confiancas, cortados = [], [], 0
+    poligonos, confiancas = [], []
     for k, (ext, inn) in enumerate(tiles):
         avisar(0.2 + 0.6 * k / len(tiles), f"detectando ({k + 1}/{len(tiles)})")
         tf = transform_janela(ext, ds.transform)
@@ -105,16 +93,11 @@ def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso
             dentro_c = inn.col_off <= cc < inn.col_off + inn.width
             if not (dentro_l and dentro_c):
                 continue
-            cortados += _toca_borda_interna(d.mascara, ext, ds.width, ds.height)
             pol = geometria.vetorizar(d.mascara, tf, gsd)
             if pol is not None and pol.area > 0:
                 poligonos.append(pol)
                 confiancas.append(d.confianca)
-    if cortados:
-        warnings.warn(
-            f"{cortados} buraco(s) encostam na borda do tile: aumente tiles.sobreposicao_m",
-            stacklevel=2,
-        )
+    poligonos, confiancas = geometria.deduplicar(poligonos, confiancas)
     return geometria.montar_defeitos(poligonos, confiancas, ds.crs, params), det
 
 

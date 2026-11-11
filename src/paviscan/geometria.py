@@ -13,19 +13,11 @@ COLUNAS = ["id", "area_m2", "largura_m", "comprimento_m", "confianca", "severida
 def vetorizar(mascara: np.ndarray, transform, gsd_m: float) -> Polygon | None:
     """Maior poligono da mascara, simplificado com tolerancia de meio pixel."""
     m = mascara.astype(np.uint8)
-    polis = [
-        shape(g)
-        for g, v in shapes(m, mask=m.astype(bool), connectivity=8, transform=transform)
-        if v == 1
-    ]
+    polis = [shape(g) for g, v in shapes(m, mask=m.astype(bool), transform=transform) if v == 1]
     if not polis:
         return None
     pol = max(polis, key=lambda g: g.area).simplify(gsd_m / 2, preserve_topology=True)
-    if not pol.is_valid:
-        pol = pol.buffer(0)
-    if pol.geom_type == "MultiPolygon":
-        pol = max(pol.geoms, key=lambda g: g.area)
-    return None if pol.is_empty else pol
+    return pol if pol.is_valid and not pol.is_empty else pol.buffer(0)
 
 
 def medidas(pol: Polygon) -> tuple[float, float]:
@@ -71,4 +63,4 @@ def montar_defeitos(
         )
     if not linhas:
         return gpd.GeoDataFrame({c: [] for c in COLUNAS}, geometry=[], crs=crs)
-    return gpd.GeoDataFrame(linhas, geometry="geometry", crs=crs)
+    return gpd.GeoD

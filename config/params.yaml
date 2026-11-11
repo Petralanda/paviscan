@@ -2,7 +2,7 @@ detector: classico          # classico | yolo (futuro)
 
 tiles:
   tamanho_px: 1024          # tamanho minimo do tile (orcamento de memoria)
-  sobreposicao_m: 2.5       # maior que o raio do maior buraco; o tile cresce se precisar
+  sobreposicao_m: 2.5       # > raio do maior buraco (o dono o ve inteiro); duplicatas saem na deduplicacao
 
 classico:
   janela_fundo_m: 2.0       # maior que o maior buraco esperado
