@@ -39,3 +39,25 @@ def test_cli_run(cena, tmp_path):
     )
     assert res.exit_code == 0, res.output
     assert (tmp_path / "r" / "pista_recorte.tif").exists()
+
+
+def test_tiles_pequenos_nao_duplicam_nem_cortam_buraco(cena, tmp_path):
+    """Com tiles de 512 px muitos buracos cruzam borda de tile: o resultado tem que ser o mesmo."""
+    import geopandas as gpd
+    import yaml
+
+    from paviscan.pipeline import carregar_config
+
+    params = carregar_config()
+    params["tiles"] = {"tamanho_px": 512, "sobreposicao_px": 128}
+    cfg = tmp_path / "p.yaml"
+    cfg.write_text(yaml.safe_dump(params))
+    a = gpd.read_file(
+        processar(cena / "orto.tif", cena / "pista.geojson", tmp_path / "a") / "defeitos.geojson"
+    )
+    b = gpd.read_file(
+        processar(cena / "orto.tif", cena / "pista.geojson", tmp_path / "b", cfg)
+        / "defeitos.geojson"
+    )
+    assert len(a) == len(b) == 3
+    assert sorted(a["area_m2"].round(2)) == sorted(b["area_m2"].round(2))

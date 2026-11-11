@@ -1,4 +1,4 @@
-"""Orquestra o processamento de uma ortofoto: ingestao, pista e recorte."""
+"""Orquestra o processamento de uma ortofoto: ingestao, pista, deteccao e geometria."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import yaml
 from rasterio.windows import Window
 from rasterio.windows import transform as transform_janela
 
-from paviscan import ingestao, pista
+from paviscan import deteccao, geometria, ingestao, pista
 
 CONFIG_PADRAO = Path(__file__).resolve().parents[2] / "config" / "params.yaml"
 
@@ -57,6 +57,40 @@ def gravar_recorte(ds, geom, jan_pista: Window, destino: Path, params: dict) -> 
             dst.write_mask((m * 255).astype(np.uint8), window=rel)
 
 
+def detectar_trecho(ds, geom, jan_pista: Window, params: dict, avisar: Progresso):
+    """Roda o detector tile a tile. Cada buraco fica com o tile cujo miolo contem o centroide.
+
+    A sobreposicao entre tiles e maior que o maior buraco, entao o tile dono ve o buraco inteiro.
+    """
+    det = deteccao.criar(params["detector"], params)
+    gsd = ingestao.gsd_m(ds)
+    t = params["tiles"]
+    tiles = list(
+        ingestao.janelas(ds.width, ds.height, t["tamanho_px"], t["sobreposicao_px"], jan_pista)
+    )
+    poligonos, confiancas = [], []
+    for k, (ext, inn) in enumerate(tiles):
+        avisar(0.2 + 0.6 * k / len(tiles), f"detectando ({k + 1}/{len(tiles)})")
+        tf = transform_janela(ext, ds.transform)
+        rgb, valido = ingestao.ler_rgb(ds, ext)
+        valida = valido & pista.mascara(geom, tf, valido.shape)
+        if not valida.any():
+            continue
+        for d in det.detectar(rgb, gsd, valida):
+            lin, col = np.nonzero(d.mascara)
+            cl = float(lin.mean()) + ext.row_off
+            cc = float(col.mean()) + ext.col_off
+            dentro_l = inn.row_off <= cl < inn.row_off + inn.height
+            dentro_c = inn.col_off <= cc < inn.col_off + inn.width
+            if not (dentro_l and dentro_c):
+                continue
+            pol = geometria.vetorizar(d.mascara, tf, gsd)
+            if pol is not None and pol.area > 0:
+                poligonos.append(pol)
+                confiancas.append(d.confianca)
+    return geometria.montar_defeitos(poligonos, confiancas, ds.crs, params), det
+
+
 def processar(
     orto: Path,
     pista_path: Path,
@@ -74,5 +108,8 @@ def processar(
         jan = pista.janela(geom, ds.transform, ds.width, ds.height)
         avisar(0.1, "recortando a pista")
         gravar_recorte(ds, geom, jan, saida / "pista_recorte.tif", params)
+        defeitos, _ = detectar_trecho(ds, geom, jan, params, avisar)
+    avisar(0.9, "gravando resultados")
+    defeitos.to_file(saida / "defeitos.geojson", driver="GeoJSON")
     avisar(1.0, "pronto")
     return saida
