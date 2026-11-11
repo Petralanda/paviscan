@@ -11,6 +11,8 @@ pytest tests/golden -q         # só os testes de aceite
 python -m paviscan.sintetico dados/sint --seed 7    # gera cena de teste com gabarito
 paviscan run --orto X.tif --pista pista.geojson --saida runs/nome
 paviscan painel --runs runs/   # abre o dashboard
+paviscan imagens               # lista o acervo de ortofotos
+./scripts/demo.sh              # sintetico + acervo + painel
 ```
 
 ## Estrutura
@@ -26,6 +28,7 @@ src/paviscan/
   exportar.py     M3  GeoJSON, GPKG, XLSX, previa.png
   painel/         M4  dados.py (funções puras) e app.py (Streamlit)
   pipeline.py     M1+ orquestra tudo
+  acervo.py       M4  pasta de imagens (../images): listar, achar, guardar (upload futuro)
   cli.py          M1+ typer
 config/params.yaml
 tests/golden/     testes de aceite. BLOQUEADOS para edição
