@@ -127,3 +127,24 @@ def test_poligonos_mapa_em_lonlat(runs):
     lon, lat = df["contorno"].iloc[0][0]
     assert -63 < lon < -57 and -4 < lat < 0
     assert len(D.poligonos_mapa(seg)) >= len(seg)
+
+
+def test_nome_levantamento_seguro():
+    assert D.nome_levantamento("Avenida Ápio Mendes 11/11") == "Avenida_Apio_Mendes_11_11"
+    assert D.nome_levantamento("../../etc") == "etc"
+    assert D.nome_levantamento("  ") == ""
+
+
+def test_filtro_de_segmento_usa_so_os_segmentos_escolhidos(runs):
+    from streamlit.testing.v1 import AppTest
+
+    os.environ["PAVISCAN_RUNS"] = str(runs)
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    at.sidebar.selectbox[0].set_value("cheio").run()
+    det, seg, _ = D.carregar(runs / "cheio")
+    s = int(det["segmento"].iloc[0])
+    at.sidebar.multiselect[1].set_value([s]).run()
+    so = D.filtrar(det, segmentos=[s])
+    esperado = D.resumir(so, seg[seg["segmento"] == s])
+    assert _metrica(at, "% da pista afetada") == f"{D.fmt(esperado['pct_afetada'])} %"
+    assert _metrica(at, "Buracos por 100 m") == D.fmt(esperado["buracos_por_100m"], 1)

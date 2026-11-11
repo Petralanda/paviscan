@@ -6,6 +6,8 @@ import base64
 import io
 import json
 import math
+import re
+import unicodedata
 from pathlib import Path
 
 import cv2
@@ -206,6 +208,13 @@ def vista_inicial(limites: list[list[float]], largura_px: int = 900, altura_px: 
     m_por_px = max(larg_m / largura_px, alt_m / altura_px) * 1.1  # 10% de folga
     zoom = math.log2(78_271.5 * cos / m_por_px)  # deck.gl: mundo de 512 px no zoom 0
     return {"latitude": lat, "longitude": lon, "zoom": max(1.0, min(22.0, zoom))}
+
+
+def nome_levantamento(texto: str) -> str:
+    """Nome seguro para a pasta do levantamento: sem acento nem barra; letras, numeros, - e _."""
+    s = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+    s = re.sub(r"[^A-Za-z0-9_-]+", "_", s.strip()).strip("_.")
+    return s[:80]
 
 
 def fmt(x: float, casas: int = 2) -> str:

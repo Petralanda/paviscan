@@ -73,8 +73,17 @@ def _processar_nova() -> None:
                 key=f"nova_pista_{img.nome}",
                 help=f"Ou salve como {img.nome}.pista.geojson ao lado da imagem.",
             )
-        nome = st.text_input("Nome do levantamento", value=img.nome, key=f"nova_nome_{img.nome}")
-        if st.button("Processar", type="primary", disabled=not (pista and nome)):
+        digitado = st.text_input(
+            "Nome do levantamento", value=img.nome, key=f"nova_nome_{img.nome}"
+        )
+        nome = D.nome_levantamento(digitado)
+        if nome and nome != digitado:
+            st.caption(f"Será gravado como `{nome}`.")
+        existe = bool(nome) and (PASTA_RUNS / nome / "resumo.json").exists()
+        confirma = True
+        if existe:
+            confirma = st.checkbox(f"Já existe um levantamento `{nome}`. Sobrescrever?")
+        if st.button("Processar", type="primary", disabled=not (pista and nome and confirma)):
             if not Path(pista).is_file():
                 st.error("Polígono da pista não encontrado. Confira o caminho.")
                 return
@@ -396,7 +405,9 @@ def main() -> None:
     det = D.filtrar(det_todos, **args)
     seg_f = D.por_segmento(det, seg)
 
-    _indicadores(D.resumir(det, seg), len(det_todos), bool(args))
+    # com filtro de segmento, % e buracos/100 m sao relativos aos segmentos escolhidos
+    seg_base = seg[seg["segmento"].isin(args["segmentos"])] if "segmentos" in args else seg
+    _indicadores(D.resumir(det, seg_base), len(det_todos), bool(args))
     if det_todos.empty:
         st.success("Nenhum buraco detectado neste trecho.")
     elif det.empty:
