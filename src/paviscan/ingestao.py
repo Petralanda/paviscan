@@ -31,18 +31,32 @@ def zona_utm(lon: float, lat: float) -> CRS:
     return CRS.from_epsg((32700 if sul else 32600) + zona)
 
 
+def precisa_reprojetar(crs) -> bool:
+    """True se o SRC nao serve para medir: geografico, unidade diferente de metro ou Mercator
+    (Web Mercator incluido), cuja escala varia com a latitude. UTM (transversa) serve."""
+    c = CRS.from_user_input(crs)
+    if not c.is_projected:
+        return True
+    unidade = (c.axis_info[0].unit_name or "").lower() if c.axis_info else ""
+    if unidade not in ("metre", "meter", "metro"):
+        return True
+    metodo = (c.coordinate_operation.method_name if c.coordinate_operation else "").lower()
+    return "mercator" in metodo and "transverse" not in metodo
+
+
 @contextmanager
 def abrir(orto: Path) -> Iterator[rasterio.io.DatasetReaderBase]:
-    """Abre a ortofoto em SRC projetado. Se estiver em graus, devolve um WarpedVRT em UTM."""
+    """Abre a ortofoto em SRC projetado em metros. Se nao estiver, devolve um WarpedVRT em UTM
+    com canal alfa, para a area sem dado nao virar pista."""
     with rasterio.open(orto) as src:
         if src.crs is None:
             raise ValueError(f"{orto}: ortofoto sem SRC")
-        if CRS.from_user_input(src.crs).is_projected:
+        if not precisa_reprojetar(src.crs):
             yield src
             return
         o, s, l_, n = transform_bounds(src.crs, "EPSG:4326", *src.bounds)
         destino = zona_utm((o + l_) / 2, (s + n) / 2)
-        with WarpedVRT(src, crs=destino, resampling=Resampling.bilinear) as vrt:
+        with WarpedVRT(src, crs=destino, resampling=Resampling.bilinear, add_alpha=True) as vrt:
             yield vrt
 
 
@@ -76,19 +90,42 @@ def janelas(
             yield Window(ec0, el0, ec1 - ec0, el1 - el0), interna
 
 
-def _para_uint8(a: np.ndarray) -> np.ndarray:
-    if a.dtype == np.uint8:
-        return a
-    if a.dtype == np.uint16:
-        return (a >> 8).astype(np.uint8)
-    return np.clip(a, 0, 255).astype(np.uint8)
+def escala(ds, lado_px: int = 1024) -> tuple[float, float] | None:
+    """(lo, hi) para levar a ortofoto a 0-255: percentis 0,5 e 99,5 de uma leitura reduzida.
+
+    None quando ja e uint8. Calculada uma vez para o levantamento todo, nao por janela.
+    """
+    if ds.dtypes[0] == "uint8":
+        return None
+    f = max(1.0, max(ds.width, ds.height) / lado_px)
+    forma = (min(ds.count, 3), max(1, int(ds.height / f)), max(1, int(ds.width / f)))
+    a = ds.read(list(range(1, forma[0] + 1)), out_shape=forma, masked=True)
+    v = a.compressed() if np.ma.isMaskedArray(a) else a.ravel()
+    v = v[np.isfinite(v)]
+    if v.size == 0:
+        return None
+    lo, hi = np.percentile(v, [0.5, 99.5])
+    return float(lo), float(max(hi, lo + 1e-6))
 
 
-def ler_rgb(ds, janela: Window) -> tuple[np.ndarray, np.ndarray]:
+def para_uint8(a: np.ndarray, esc: tuple[float, float] | None = None) -> np.ndarray:
+    """Converte para uint8. Com `esc`, estica (lo, hi) linearmente para 0-255."""
+    if esc is None:
+        if a.dtype == np.uint8:
+            return a
+        return np.clip(a, 0, 255).astype(np.uint8)
+    lo, hi = esc
+    b = (a.astype(np.float32) - lo) * (255.0 / (hi - lo))
+    return np.clip(np.nan_to_num(b), 0, 255).astype(np.uint8)
+
+
+def ler_rgb(
+    ds, janela: Window, esc: tuple[float, float] | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Le uma janela como RGB uint8 HxWx3 e a mascara de dado valido (bool HxW)."""
     n = ds.count
     bandas = [1, 1, 1] if n < 3 else [1, 2, 3]
     arr = ds.read(bandas, window=janela, boundless=False)
-    rgb = _para_uint8(np.moveaxis(arr, 0, -1))
+    rgb = para_uint8(np.moveaxis(arr, 0, -1), esc)
     valido = ds.dataset_mask(window=janela) > 0
     return np.ascontiguousarray(rgb), valido
