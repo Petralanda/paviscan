@@ -28,3 +28,6 @@ segmentos:
 
 previa:
   margem_m: 5.0             # entorno da pista incluido na previa.png do dashboard
+
+acervo:
+  pasta_imagens: ../images   # ortofotos oferecidas no painel; relativa a raiz do repo
