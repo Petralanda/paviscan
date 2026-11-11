@@ -40,66 +40,121 @@ def _descrever(caminho: str, versao: float) -> dict:
     return acervo.descrever(Path(caminho))
 
 
-def _processar_nova() -> None:
-    """Escolhe uma ortofoto do acervo (pasta de imagens) e processa na hora."""
-    pasta = acervo.pasta(carregar_config())
-    with st.expander("Processar nova imagem", expanded=not D.listar_runs(PASTA_RUNS)):
-        imgs = acervo.listar(pasta)
-        if not imgs:
-            st.info(f"Nenhuma GeoTIFF no acervo. Copie as ortofotos para `{pasta}`.")
-            return
-        st.caption(f"Acervo de imagens: `{pasta}`")
-        por_nome = {i.caminho.name: i for i in imgs}
-        escolha = st.selectbox(
-            "Ortofoto",
-            list(por_nome),
-            key="nova_orto",
-            format_func=lambda n: n if por_nome[n].pista else f"{n}  (sem polígono da pista)",
-        )
-        img = por_nome[escolha]
-        d = _descrever(str(img.caminho), img.caminho.stat().st_mtime)
-        gsd = f"{D.fmt(100 * d['gsd_m'], 1)} cm/px" if d["gsd_m"] else "SRC em graus"
-        st.caption(
-            f"{d['largura_px']} x {d['altura_px']} px · {gsd} · {d['src']} · "
-            f"{D.fmt(d['tamanho_mb'], 0)} MB"
-            + (" · será reprojetada para UTM" if d["reprojetar"] else "")
-        )
-        if img.pista:
-            st.caption(f"Polígono da pista: `{img.pista.name}`")
-            pista = str(img.pista)
-        else:
-            pista = st.text_input(
-                "Polígono da pista (GeoJSON/GPKG)",
-                key=f"nova_pista_{img.nome}",
-                help=f"Ou salve como {img.nome}.pista.geojson ao lado da imagem.",
-            )
-        digitado = st.text_input(
-            "Nome do levantamento", value=img.nome, key=f"nova_nome_{img.nome}"
-        )
-        nome = D.nome_levantamento(digitado)
-        if nome and nome != digitado:
-            st.caption(f"Será gravado como `{nome}`.")
-        existe = bool(nome) and (PASTA_RUNS / nome / "resumo.json").exists()
-        confirma = True
-        if existe:
-            confirma = st.checkbox(f"Já existe um levantamento `{nome}`. Sobrescrever?")
-        if st.button("Processar", type="primary", disabled=not (pista and nome and confirma)):
-            if not Path(pista).is_file():
-                st.error("Polígono da pista não encontrado. Confira o caminho.")
-                return
-            barra = st.progress(0.0, text="Começando")
+def _enviar(pasta: Path) -> None:
+    """Upload de uma ortofoto (e, se tiver, do poligono da pista) para o acervo."""
+    n = st.session_state.setdefault("_envio", 0)  # trocar a chave limpa os campos de upload
+    orto = st.file_uploader(
+        "Ortofoto (GeoTIFF georreferenciado)", type=["tif", "tiff", "geotiff"], key=f"up_orto_{n}"
+    )
+    pista = st.file_uploader(
+        "Polígono da pista (opcional, GeoJSON ou GPKG)",
+        type=["geojson", "json", "gpkg"],
+        key=f"up_pista_{n}",
+        help="Sem ele dá para guardar a imagem e enviar o polígono depois, na aba Processar.",
+    )
+    if orto is None:
+        st.caption(f"As imagens enviadas ficam guardadas em `{pasta}`.")
+        return
+    nome = D.nome_levantamento(Path(orto.name).stem) or "ortofoto"
+    nome = D.nome_levantamento(st.text_input("Nome no acervo", value=nome, key=f"up_nome_{n}"))
+    sufixo = Path(orto.name).suffix.lower()
+    existe = bool(nome) and (pasta / f"{nome}{sufixo}").exists()
+    sobrescrever = existe and st.checkbox(f"Já existe `{nome}{sufixo}` no acervo. Substituir?")
+    pode = bool(nome) and (not existe or sobrescrever)
+    if st.button("Guardar no acervo", type="primary", disabled=not pode):
+        with st.spinner("Gravando e conferindo a georreferência..."):
             try:
-                processar(
-                    img.caminho,
-                    Path(pista),
-                    PASTA_RUNS / nome,
-                    progresso=lambda f, msg: barra.progress(min(1.0, f), text=msg),
-                )
-            except Exception as e:  # mostra o erro ao usuario em vez de quebrar a pagina
-                st.error(f"Falha ao processar: {e}")
+                destino = acervo.guardar(orto, f"{nome}{sufixo}", pasta, sobrescrever=sobrescrever)
+                if pista is not None:
+                    acervo.guardar_pista(pista, destino)
+            except (ValueError, FileExistsError) as e:
+                st.error(f"Não foi possível guardar: {e}")
                 return
-            st.session_state["run_escolhido"] = nome
+        st.session_state["_envio"] = n + 1
+        st.session_state["_selecionar_orto"] = destino.name  # aplicado antes do seletor
+        st.session_state["_aviso_envio"] = f"`{destino.name}` guardada no acervo." + (
+            "" if pista is not None else " Envie o polígono da pista na aba Processar."
+        )
+        st.rerun()
+
+
+def _processar(pasta: Path) -> None:
+    """Escolhe uma ortofoto do acervo e processa na hora."""
+    imgs = acervo.listar(pasta)
+    if not imgs:
+        st.info("Nenhuma imagem no acervo ainda. Envie uma na aba **Enviar imagem**.")
+        return
+    por_nome = {i.caminho.name: i for i in imgs}
+    if (sel := st.session_state.pop("_selecionar_orto", None)) in por_nome:
+        st.session_state["nova_orto"] = sel
+    if st.session_state.get("nova_orto") not in por_nome:
+        st.session_state.pop("nova_orto", None)
+    escolha = st.selectbox(
+        "Ortofoto",
+        list(por_nome),
+        key="nova_orto",
+        format_func=lambda n: n if por_nome[n].pista else f"{n}  (sem polígono da pista)",
+    )
+    img = por_nome[escolha]
+    d = _descrever(str(img.caminho), img.caminho.stat().st_mtime)
+    gsd = f"{D.fmt(100 * d['gsd_m'], 1)} cm/px" if d["gsd_m"] else "SRC em graus"
+    st.caption(
+        f"{d['largura_px']} x {d['altura_px']} px · {gsd} · {d['src']} · "
+        f"{D.fmt(d['tamanho_mb'], 0)} MB"
+        + (" · será reprojetada para UTM" if d["reprojetar"] else "")
+    )
+    if img.pista:
+        st.caption(f"Polígono da pista: `{img.pista.name}`")
+    else:
+        up = st.file_uploader(
+            "Esta imagem ainda não tem o polígono da pista. Envie (GeoJSON ou GPKG):",
+            type=["geojson", "json", "gpkg"],
+            key=f"up_pista_de_{img.nome}",
+        )
+        if up is not None and st.button("Guardar polígono"):
+            try:
+                acervo.guardar_pista(up, img.caminho)
+            except Exception as e:  # arquivo vetorial invalido: mostra e segue
+                st.error(f"Polígono inválido: {e}")
+                return
             st.rerun()
+        return
+    digitado = st.text_input("Nome do levantamento", value=img.nome, key=f"nova_nome_{img.nome}")
+    nome = D.nome_levantamento(digitado)
+    if nome and nome != digitado:
+        st.caption(f"Será gravado como `{nome}`.")
+    existe = bool(nome) and (PASTA_RUNS / nome / "resumo.json").exists()
+    confirma = True
+    if existe:
+        confirma = st.checkbox(f"Já existe um levantamento `{nome}`. Sobrescrever?")
+    if st.button("Processar", type="primary", disabled=not (nome and confirma)):
+        barra = st.progress(0.0, text="Começando")
+        try:
+            processar(
+                img.caminho,
+                img.pista,
+                PASTA_RUNS / nome,
+                progresso=lambda f, msg: barra.progress(min(1.0, f), text=msg),
+            )
+        except Exception as e:  # mostra o erro ao usuario em vez de quebrar a pagina
+            st.error(f"Falha ao processar: {e}")
+            return
+        st.session_state["run_escolhido"] = nome
+        st.rerun()
+
+
+def _imagens() -> None:
+    """Acervo de ortofotos: enviar novas e processar as guardadas."""
+    pasta = acervo.pasta(carregar_config())
+    aberto = not D.listar_runs(PASTA_RUNS) or "_aviso_envio" in st.session_state
+    with st.expander("Imagens: enviar e processar", expanded=aberto):
+        if aviso := st.session_state.pop("_aviso_envio", None):
+            st.success(aviso)
+        aba_proc, aba_env = st.tabs(["Processar", "Enviar imagem"])
+        with aba_proc:
+            _processar(pasta)
+        with aba_env:
+            _enviar(pasta)
 
 
 def _limpar(padroes: dict) -> None:
@@ -378,11 +433,11 @@ def main() -> None:
     st.caption("Buracos em pavimento a partir de ortofoto: um retrato do trecho na data do voo.")
 
     runs = D.listar_runs(PASTA_RUNS)
-    _processar_nova()
+    _imagens()
     if not runs:
         st.info(
-            f"Nenhum levantamento em `{PASTA_RUNS}`. Processe uma imagem acima ou rode "
-            "`paviscan run --orto X.tif --pista pista.geojson --saida runs/nome`."
+            "Nenhum levantamento processado ainda. Em **Imagens**, acima, envie uma ortofoto "
+            "com o polígono da pista e clique em Processar."
         )
         return
 

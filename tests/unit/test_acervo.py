@@ -106,7 +106,16 @@ def test_painel_processa_imagem_do_acervo(pasta, tmp_path, monkeypatch):
         "trecho_a.tif",
     ]
     at.selectbox(key="nova_orto").set_value("trecho_a.tif").run()
-    at.button[0].click().run()
+    next(b for b in at.button if b.label == "Processar").click().run()
     assert not at.exception, at.exception
     assert (tmp_path / "runs" / "trecho_a" / "resumo.json").exists()
     assert len(at.metric) >= 3
+
+
+def test_guardar_pista_de_upload(cena, tmp_path):
+    img = acervo.guardar(cena / "orto.tif", "voo", tmp_path)
+    up = io.BytesIO((cena / "pista.geojson").read_bytes())  # como o UploadedFile do Streamlit
+    p = acervo.guardar_pista(up, img)
+    assert acervo.listar(tmp_path)[0].pista == p
+    with pytest.raises(ValueError):
+        acervo.guardar_pista(io.BytesIO(b'{"type": "FeatureCollection", "features": []}'), img)
