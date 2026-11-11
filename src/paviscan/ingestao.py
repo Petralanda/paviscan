@@ -64,7 +64,9 @@ def janelas(
     c0, l0 = max(0, int(lim.col_off)), max(0, int(lim.row_off))
     c1 = min(largura, int(math.ceil(lim.col_off + lim.width)))
     l1 = min(altura, int(math.ceil(lim.row_off + lim.height)))
-    passo = max(1, tamanho - 2 * sobreposicao)
+    if tamanho <= 2 * sobreposicao:
+        raise ValueError(f"tile de {tamanho} px nao comporta sobreposicao de {sobreposicao} px")
+    passo = tamanho - 2 * sobreposicao
     for lin in range(l0, l1, passo):
         for col in range(c0, c1, passo):
             interna = Window(col, lin, min(passo, c1 - col), min(passo, l1 - lin))
